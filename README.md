@@ -1,19 +1,194 @@
-# README
+# Proxy Bandwidth Saver
 
-## About
+Ung dung quan ly proxy thong minh giup tiet kiem bang thong residential. Tu dong phan loai traffic va dinh tuyen qua proxy phu hop (direct/datacenter/residential) dua tren rules do nguoi dung cau hinh.
 
-This is the official Wails React-TS template.
+## Tinh nang
 
-You can configure the project by editing `wails.json`. More information about the project settings can be found
-here: https://wails.io/docs/reference/project-config
+- **Proxy Server** — HTTP + SOCKS5 proxy server tich hop
+- **Traffic Rules** — Phan loai traffic theo domain, content-type, URL pattern
+- **Smart Routing** — Tu dong dinh tuyen qua direct, datacenter hoac residential proxy
+- **Caching** — Cache memory + disk de giam request trung lap
+- **Budget Tracking** — Theo doi bang thong va chi phi theo ngay/thang
+- **HTTPS Inspection** — MITM proxy cho HTTPS (tuy chon)
+- **Proxy Authentication** — Bao mat bang username/password hoac IP whitelist
+- **Port Mapping** — Moi upstream proxy duoc map thanh 1 output port rieng
+- **Dark Mode** — Giao dien sang/toi voi chuyen doi muot ma
+- **Responsive UI** — Sidebar tu dong thu gon khi cua so nho
 
-## Live Development
+## Yeu cau he thong
 
-To run in live development mode, run `wails dev` in the project directory. This will run a Vite development
-server that will provide very fast hot reload of your frontend changes. If you want to develop in a browser
-and have access to your Go methods, there is also a dev server that runs on http://localhost:34115. Connect
-to this in your browser, and you can call your Go code from devtools.
+### Desktop (Windows — Wails App)
+- **Go** >= 1.21
+- **Node.js** >= 18
+- **Wails CLI** v2 — `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+- **WebView2** Runtime (Windows 10/11 da co san)
 
-## Building
+### Headless Server (Linux VPS)
+- **Go** >= 1.21
+- **Node.js** >= 18 (de build frontend)
 
-To build a redistributable, production mode package, use `wails build`.
+## Cai dat & Chay
+
+### 1. Clone repo
+
+```bash
+git clone https://github.com/mnnb123/proxy-bandwidth-saver.git
+cd proxy-bandwidth-saver
+```
+
+### 2. Cai dependencies
+
+```bash
+# Go modules
+go mod download
+
+# Frontend
+cd frontend && npm install && cd ..
+```
+
+### 3a. Chay Desktop App (Windows)
+
+```bash
+# Dev mode (hot reload)
+wails dev
+
+# Build file .exe
+wails build
+```
+
+File output: `build/bin/proxy-bandwidth-saver.exe`
+
+### 3b. Build Headless Server (Linux VPS)
+
+```bash
+# Build cho Linux amd64
+make build-linux
+
+# Hoac Linux arm64
+make build-linux-arm64
+
+# Hoac Windows headless (khong co GUI)
+make build-windows
+```
+
+File output: `dist/proxy-bandwidth-saver-linux-amd64`
+
+### 4. Deploy len VPS
+
+```bash
+# Dong goi (binary + systemd service + install script)
+make package-linux
+
+# Upload len server
+scp dist/proxy-bandwidth-saver-linux-amd64.tar.gz user@your-vps:/tmp/
+
+# Tren server:
+cd /tmp && tar xzf proxy-bandwidth-saver-linux-amd64.tar.gz
+sudo bash install.sh
+```
+
+Sau khi cai dat:
+- **Web Admin Panel**: `http://<vps-ip>:8080`
+- **HTTP Proxy**: `<vps-ip>:8888`
+- **SOCKS5 Proxy**: `<vps-ip>:8889`
+
+## Cau hinh
+
+Tat ca cau hinh duoc thay doi qua giao dien Settings. Cac gia tri mac dinh:
+
+| Setting | Mac dinh | Mo ta |
+|---------|----------|-------|
+| HTTP Port | `8888` | Port cho HTTP proxy |
+| SOCKS5 Port | `8889` | Port cho SOCKS5 proxy |
+| Bind Address | `127.0.0.1` | `0.0.0.0` de mo cho mang ngoai |
+| Cache Memory | `512 MB` | Gioi han cache trong RAM |
+| Cache Disk | `2048 MB` | Gioi han cache tren disk |
+| MITM | `Off` | Bat de inspect HTTPS traffic |
+
+### Bien moi truong
+
+| Bien | Mo ta |
+|------|-------|
+| `PBS_DATA_DIR` | Thu muc luu tru data (DB, cache, certs) |
+
+### Du lieu luu tru
+
+| OS | Duong dan |
+|----|-----------|
+| Windows | `%APPDATA%\ProxyBandwidthSaver\` |
+| Linux (user) | `~/.local/share/proxy-bandwidth-saver/` |
+| Linux (service) | `/var/lib/proxy-bandwidth-saver/` |
+
+## Bao mat Proxy
+
+Khi bind `0.0.0.0` (mo cho mang ngoai), **bat buoc** phai bat 1 trong 2:
+
+1. **Username/Password** — Proxy yeu cau xac thuc (HTTP Basic + SOCKS5 auth)
+2. **IP Whitelist** — Chi cho phep cac IP/CIDR duoc cau hinh (localhost luon duoc phep)
+
+Cau hinh trong Settings > Proxy Authentication.
+
+## Quan ly Service (Linux)
+
+```bash
+# Xem trang thai
+sudo systemctl status proxy-bandwidth-saver
+
+# Dung / Khoi dong lai
+sudo systemctl stop proxy-bandwidth-saver
+sudo systemctl restart proxy-bandwidth-saver
+
+# Xem log realtime
+sudo journalctl -u proxy-bandwidth-saver -f
+```
+
+## Cau truc du an
+
+```
+proxy-bandwidth-saver/
+├── app.go                  # Wails app (desktop mode)
+├── main.go                 # Wails entry point
+├── cmd/server/             # Headless server (VPS mode)
+├── frontend/               # React + TypeScript + Vite
+│   ├── src/
+│   │   ├── components/     # UI components (Button, Modal, Sidebar...)
+│   │   ├── pages/          # Dashboard, Rules, Proxies, Settings
+│   │   ├── stores/         # Zustand state management
+│   │   └── style.css       # Design system (CSS variables)
+│   └── wailsjs/            # Auto-generated Wails bindings
+├── internal/
+│   ├── cache/              # Memory + disk cache
+│   ├── classifier/         # Traffic classification rules
+│   ├── config/             # App configuration
+│   ├── database/           # SQLite database
+│   ├── meter/              # Bandwidth metering
+│   ├── optimizer/          # Request optimization
+│   ├── proxy/              # HTTP/SOCKS5 proxy server, auth, MITM
+│   ├── upstream/           # Upstream proxy manager & strategy
+│   └── webapi/             # REST API + SSE (headless mode)
+├── deploy/                 # Systemd service + install script
+├── Makefile                # Build commands
+└── wails.json              # Wails config
+```
+
+## Tech Stack
+
+- **Backend**: Go, Wails v2, SQLite, bbolt
+- **Frontend**: React 18, TypeScript, Vite, Tailwind CSS v4, Zustand, Recharts, Sonner
+- **Proxy**: net/http, goproxy (MITM), go-socks5
+- **Deploy**: Systemd, cross-compile (CGO_ENABLED=0)
+
+## Make Commands
+
+```bash
+make help             # Xem tat ca commands
+make dev              # Chay Wails dev mode
+make build-linux      # Build headless cho Linux amd64
+make build-windows    # Build headless cho Windows
+make package-linux    # Dong goi de deploy
+make clean            # Xoa build artifacts
+```
+
+## License
+
+Private project.
