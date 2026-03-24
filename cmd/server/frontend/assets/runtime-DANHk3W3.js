@@ -1,0 +1,1 @@
+function e(e,t,n){return window.runtime.EventsOnMultiple(e,t,n)}function t(t,n){return e(t,n,-1)}function n(){window.runtime.WindowToggleMaximise()}function r(){window.runtime.WindowMinimise()}function i(){window.runtime.Quit()}export{t as EventsOn,i as Quit,r as WindowMinimise,n as WindowToggleMaximise};

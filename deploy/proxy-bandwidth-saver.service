@@ -1,0 +1,41 @@
+[Unit]
+Description=Proxy Bandwidth Saver - Local proxy with bandwidth optimization
+Documentation=https://github.com/user/proxy-bandwidth-saver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=proxybw
+Group=proxybw
+
+ExecStart=/usr/local/bin/proxy-bandwidth-saver \
+    --web-port 8080 \
+    --data-dir /var/lib/proxy-bandwidth-saver
+
+Restart=on-failure
+RestartSec=5
+StartLimitBurst=5
+StartLimitIntervalSec=60
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/proxy-bandwidth-saver
+PrivateTmp=true
+
+# Allow binding to ports >= 1024
+AmbientCapabilities=
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=proxy-bandwidth-saver
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
