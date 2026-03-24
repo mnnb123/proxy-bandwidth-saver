@@ -85,7 +85,8 @@ func (a *App) startup(ctx context.Context) {
 
 	a.proxyAuth = proxy.NewProxyAuth()
 	a.configureProxyAuth()
-	a.portMapper = proxy.NewPortMapper("127.0.0.1", 30000, a.proxyAuth)
+	basePort := a.db.GetSettingInt("base_port", 30000)
+	a.portMapper = proxy.NewPortMapper("127.0.0.1", basePort, a.proxyAuth)
 
 	a.optCfg = &optimizer.Config{
 		AcceptEncodingEnforce: a.cfg.AcceptEncodingEnforce,

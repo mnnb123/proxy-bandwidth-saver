@@ -156,6 +156,9 @@ export default function SettingsPage() {
         <Field label="SOCKS5 Port">
           <NumberInput value={getNumber('socks5_port', 8889)} onChange={(v) => setSetting('socks5_port', v)} min={1024} max={65535} />
         </Field>
+        <Field label="Output Base Port">
+          <NumberInput value={getNumber('base_port', 30000)} onChange={(v) => setSetting('base_port', v)} min={1024} max={65535} />
+        </Field>
         <Field label="Bind Address">
           <SelectInput
             value={getString('bind_address', '127.0.0.1')}

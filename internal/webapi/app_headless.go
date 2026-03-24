@@ -79,7 +79,8 @@ func (a *HeadlessApp) Start() error {
 
 	a.proxyAuth = proxy.NewProxyAuth()
 	a.configureProxyAuth()
-	a.portMapper = proxy.NewPortMapper("0.0.0.0", 30000, a.proxyAuth)
+	basePort := a.db.GetSettingInt("base_port", 30000)
+	a.portMapper = proxy.NewPortMapper("0.0.0.0", basePort, a.proxyAuth)
 	a.remapAllProxies()
 
 	a.optCfg = &optimizer.Config{
