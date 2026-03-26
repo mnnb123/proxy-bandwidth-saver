@@ -8,7 +8,6 @@ import (
 )
 
 // GetDomainStatsJSON returns bandwidth stats grouped by domain.
-// proxyID=0 means all proxies, proxyID>0 means specific output proxy port.
 func (a *HeadlessApp) GetDomainStatsJSON(period string) interface{} {
 	return a.getDomainStats(period, 0)
 }
@@ -52,12 +51,13 @@ func (a *HeadlessApp) getDomainStats(period string, proxyID int) []database.Doma
 				THEN CAST(SUM(cache_hit) AS REAL) / COUNT(*) * 100
 				ELSE 0
 			END as cache_hit_pct,
-			COALESCE(proxy_id, 0) as proxy_id
+			COALESCE(proxy_id, 0) as proxy_id,
+			MAX(timestamp) as last_seen
 		FROM bandwidth_log
 		WHERE timestamp > ` + timeFilter + proxyFilter + `
 		GROUP BY domain, proxy_id
 		ORDER BY total_bytes DESC
-		LIMIT 200
+		LIMIT 500
 	`
 
 	rows, err := a.db.Reader.Query(query)
@@ -69,9 +69,11 @@ func (a *HeadlessApp) getDomainStats(period string, proxyID int) []database.Doma
 	var stats []database.DomainStat
 	for rows.Next() {
 		var s database.DomainStat
-		if err := rows.Scan(&s.Domain, &s.TotalBytes, &s.Requests, &s.Route, &s.CacheHitPct, &s.ProxyID); err != nil {
+		var lastSeen string
+		if err := rows.Scan(&s.Domain, &s.TotalBytes, &s.Requests, &s.Route, &s.CacheHitPct, &s.ProxyID, &lastSeen); err != nil {
 			continue
 		}
+		s.LastSeen = lastSeen
 		stats = append(stats, s)
 	}
 	if stats == nil {

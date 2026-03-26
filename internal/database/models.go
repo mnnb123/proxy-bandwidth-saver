@@ -123,6 +123,7 @@ type DomainStat struct {
 	Route       string  `json:"route"`
 	CacheHitPct float64 `json:"cacheHitPct"`
 	ProxyID     int     `json:"proxyId"`
+	LastSeen    string  `json:"lastSeen"`
 }
 
 type BandwidthPoint struct {
