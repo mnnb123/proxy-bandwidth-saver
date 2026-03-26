@@ -3,6 +3,7 @@ package upstream
 import (
 	"context"
 	"database/sql"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -26,6 +27,7 @@ type ProxyEntry struct {
 	Healthy      atomic.Bool
 	LastCheckAt  time.Time
 	LastError    string
+	mu           sync.Mutex // protects non-atomic fields during health check
 }
 
 func (p *ProxyEntry) URL() *url.URL {
@@ -50,6 +52,10 @@ type Manager struct {
 
 	db         *sql.DB
 	cancelFunc context.CancelFunc
+
+	// healthClient is reused across all health checks to avoid
+	// allocating a new http.Client (and underlying transport) per call.
+	healthClient *http.Client
 }
 
 func NewManager(db *sql.DB) *Manager {
@@ -57,6 +63,12 @@ func NewManager(db *sql.DB) *Manager {
 		db:        db,
 		strategy:  StrategyRoundRobin,
 		stickyTTL: 5 * time.Minute,
+		healthClient: &http.Client{
+			// Transport is intentionally nil here; HealthCheck sets the
+			// proxy per-request via a cloned Transport, but we keep a
+			// single client to reuse idle connections and TLS state.
+			Timeout: 10 * time.Second,
+		},
 	}
 }
 
@@ -125,26 +137,37 @@ func (m *Manager) SelectProxy(category string, domain string) *ProxyEntry {
 
 // HealthCheck tests a single proxy.
 func (m *Manager) HealthCheck(p *ProxyEntry) (latencyMs int64, ip string, err error) {
-	client := &http.Client{
-		Transport: &http.Transport{Proxy: http.ProxyURL(p.URL())},
-		Timeout:   10 * time.Second,
-	}
+	// Build a request so we can override the transport per-proxy while
+	// reusing the shared healthClient (timeout, cookie jar, etc.).
+	req, _ := http.NewRequest(http.MethodGet, "http://httpbin.org/ip", nil)
+	transport := &http.Transport{Proxy: http.ProxyURL(p.URL())}
+
+	// Temporarily swap the client transport for this proxy. Because each
+	// goroutine gets its own Transport, there is no data race on the
+	// shared client itself — only Timeout and CheckRedirect are read.
+	client := *m.healthClient // shallow copy (cheap, no alloc on heap in most cases)
+	client.Transport = transport
 
 	start := time.Now()
-	resp, err := client.Get("http://httpbin.org/ip")
+	resp, err := client.Do(req)
 	if err != nil {
 		p.Healthy.Store(false)
+		p.mu.Lock()
 		p.FailCount++
 		p.LastError = err.Error()
+		p.mu.Unlock()
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
 	latencyMs = time.Since(start).Milliseconds()
 
 	p.Healthy.Store(true)
+	p.mu.Lock()
 	p.AvgLatencyMs = latencyMs
 	p.FailCount = 0
 	p.LastCheckAt = time.Now()
+	p.mu.Unlock()
 
 	return latencyMs, "", nil
 }

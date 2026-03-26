@@ -26,11 +26,11 @@ async function wailsOrAPI<T>(bindingName: string, apiPath: string, apiOptions?: 
   return fetchAPI<T>(apiPath, apiOptions)
 }
 
-function postJSON(path: string, body: object): RequestInit {
+function postJSON(_path: string, body: object): RequestInit {
   return { method: 'POST', body: JSON.stringify(body) }
 }
 
-function putJSON(path: string, body: object): RequestInit {
+function putJSON(_path: string, body: object): RequestInit {
   return { method: 'PUT', body: JSON.stringify(body) }
 }
 
@@ -76,8 +76,13 @@ export async function TestRule(domain: string, url: string, contentType: string)
 
 export async function AddBulkRules(patterns: string[], action: string, priority: number): Promise<number> {
   if (isWails) {
-    const { AddBulkRules } = await import('../../wailsjs/go/main/App')
-    return AddBulkRules(patterns, action, priority)
+    // Wails doesn't have AddBulkRules binding — add rules one by one
+    const mod = await import('../../wailsjs/go/main/App')
+    let count = 0
+    for (const p of patterns) {
+      try { await mod.AddRule('domain', p.trim(), action, priority); count++ } catch {}
+    }
+    return count
   }
   const res = await fetchAPI<{ count: number }>('/api/rules/bulk', postJSON('/api/rules/bulk', { patterns, action, priority }))
   return res.count

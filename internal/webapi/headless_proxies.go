@@ -9,7 +9,14 @@ import (
 )
 
 func (a *HeadlessApp) GetProxiesJSON() interface{} {
-	return a.getProxies()
+	proxies := a.getProxies()
+	// Mask passwords in API response
+	for i := range proxies {
+		if proxies[i].Password != "" {
+			proxies[i].Password = "****"
+		}
+	}
+	return proxies
 }
 
 func (a *HeadlessApp) getProxies() []database.Proxy {

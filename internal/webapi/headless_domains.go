@@ -36,9 +36,11 @@ func (a *HeadlessApp) getDomainStats(period string, proxyID int) []database.Doma
 		timeFilter = "datetime('now', '-1 day')"
 	}
 
+	args := []interface{}{}
 	proxyFilter := ""
 	if proxyID > 0 {
-		proxyFilter = fmt.Sprintf(" AND proxy_id = %d", proxyID)
+		proxyFilter = " AND proxy_id = ?"
+		args = append(args, proxyID)
 	}
 
 	query := `
@@ -60,7 +62,7 @@ func (a *HeadlessApp) getDomainStats(period string, proxyID int) []database.Doma
 		LIMIT 500
 	`
 
-	rows, err := a.db.Reader.Query(query)
+	rows, err := a.db.Reader.Query(query, args...)
 	if err != nil {
 		return []database.DomainStat{}
 	}
@@ -101,7 +103,7 @@ func (a *HeadlessApp) AutoClearDomainStats(minutes int) error {
 		return fmt.Errorf("not initialized")
 	}
 	_, err := a.db.Writer.Exec(
-		fmt.Sprintf("DELETE FROM bandwidth_log WHERE timestamp < datetime('now', '-%d minutes')", minutes),
+		"DELETE FROM bandwidth_log WHERE timestamp < datetime('now', '-' || ? || ' minutes')", minutes,
 	)
 	return err
 }

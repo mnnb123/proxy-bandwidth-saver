@@ -2,6 +2,7 @@ import { useState, useEffect, lazy, Suspense } from 'react'
 import Titlebar from './components/layout/Titlebar'
 import Sidebar, { type Page } from './components/layout/Sidebar'
 import { ToastContainer } from './components/ui/Toast'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { useProxyStore } from './stores/proxyStore'
 import { DashboardSkeleton, TableSkeleton, SettingsSkeleton } from './components/ui/Skeleton'
 
@@ -43,9 +44,11 @@ function App() {
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activePage={activePage} onNavigate={setActivePage} />
         <main className="flex-1 overflow-hidden">
-          <Suspense fallback={fallbacks[activePage]}>
-            <ActivePage />
-          </Suspense>
+          <ErrorBoundary>
+            <Suspense fallback={fallbacks[activePage]}>
+              <ActivePage />
+            </Suspense>
+          </ErrorBoundary>
         </main>
       </div>
       <ToastContainer />

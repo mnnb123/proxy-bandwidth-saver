@@ -131,7 +131,16 @@ func (m *Meter) logWriter(ctx context.Context) {
 	for {
 		select {
 		case <-ctx.Done():
-			// Flush remaining
+			// Drain channel and flush all remaining entries
+		drain:
+			for {
+				select {
+				case entry := <-m.logChan:
+					batch = append(batch, entry)
+				default:
+					break drain
+				}
+			}
 			if len(batch) > 0 {
 				m.writeBatch(batch)
 			}
@@ -186,7 +195,7 @@ func (m *Meter) writeBatch(entries []RequestLog) {
 }
 
 func (m *Meter) speedCalculator(ctx context.Context) {
-	var lastTotal, lastRes int64
+	var lastTotalBytes, lastResidentialBytes int64
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -197,10 +206,10 @@ func (m *Meter) speedCalculator(ctx context.Context) {
 		case <-ticker.C:
 			currentTotal := m.totalBytesToday.Load()
 			currentRes := m.residentialBytesToday.Load()
-			m.bytesPerSecond.Store(currentTotal - lastTotal)
-			m.residentialBPS.Store(currentRes - lastRes)
-			lastTotal = currentTotal
-			lastRes = currentRes
+			m.bytesPerSecond.Store(currentTotal - lastTotalBytes)
+			m.residentialBPS.Store(currentRes - lastResidentialBytes)
+			lastTotalBytes = currentTotal
+			lastResidentialBytes = currentRes
 		}
 	}
 }

@@ -98,9 +98,24 @@ func (a *HeadlessApp) GetSettingsJSON() interface{} {
 	return settings
 }
 
+// allowedSettingKeys is the allowlist of setting keys that can be updated via API.
+var allowedSettingKeys = map[string]bool{
+	"proxy_auth_enabled": true, "proxy_username": true, "proxy_password": true,
+	"web_username": true, "web_password": true,
+	"accept_encoding_enforce": true, "header_stripping": true,
+	"html_minification": true, "image_recompression": true, "image_quality": true,
+	"cache_enabled": true, "cache_max_size_mb": true, "cache_ttl_minutes": true,
+	"budget_daily_gb": true, "budget_monthly_gb": true, "cost_per_gb": true,
+	"auto_clear_minutes": true, "log_retention_days": true,
+	"mitm_enabled": true,
+}
+
 func (a *HeadlessApp) UpdateSetting(key, value string) error {
 	if a.db == nil {
 		return fmt.Errorf("not initialized")
+	}
+	if !allowedSettingKeys[key] {
+		return fmt.Errorf("setting key not allowed: %s", key)
 	}
 	if err := a.db.SetSetting(key, value); err != nil {
 		return err

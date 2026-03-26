@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"proxy-bandwidth-saver/internal/config"
 	"proxy-bandwidth-saver/internal/webapi"
@@ -64,8 +65,14 @@ func main() {
 			}
 			proxyAddr = fmt.Sprintf("%s:%d", host, cfg.HTTPPort)
 		}
+		// Sanitize proxyAddr to prevent JavaScript injection in PAC file
+		proxyAddr = strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == ':' || r == '-' {
+				return r
+			}
+			return -1
+		}, proxyAddr)
 		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Write([]byte(app.GeneratePAC(proxyAddr)))
 	})
 
@@ -102,8 +109,12 @@ func main() {
 	log.Printf("SOCKS5 Proxy: 0.0.0.0:%d", cfg.SOCKS5Port)
 
 	server := &http.Server{
-		Addr:    addr,
-		Handler: webAuth.Wrap(mainMux),
+		Addr:              addr,
+		Handler:           webAuth.Wrap(mainMux),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
 	}
 
 	// Graceful shutdown

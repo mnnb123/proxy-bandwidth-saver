@@ -10,7 +10,7 @@ interface Proxy {
 }
 
 interface OutputProxy {
-  proxyId: number; localAddr: string; localPort: number; upstream: string; type: string
+  proxyId: number; localAddr: string; localPort: number; upstream: string; type: string; protocol: string
 }
 
 interface ProxiesState {

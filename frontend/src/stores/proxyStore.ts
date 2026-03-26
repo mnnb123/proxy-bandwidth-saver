@@ -1,5 +1,8 @@
 import { create } from 'zustand'
 import { GetProxyStatus, StartProxy, StopProxy } from '../lib/api'
+import { useToastStore } from './toastStore'
+
+const toast = () => useToastStore.getState()
 
 interface ProxyState {
   running: boolean
@@ -40,8 +43,9 @@ export const useProxyStore = create<ProxyState>((set) => ({
       await StartProxy()
       const status = await GetProxyStatus()
       set({ running: status.running })
+      toast().addToast('success', 'Proxy started')
     } catch (e) {
-      console.error('Failed to start proxy:', e)
+      toast().addToast('error', `Failed to start proxy: ${e}`)
     }
   },
 
@@ -49,8 +53,9 @@ export const useProxyStore = create<ProxyState>((set) => ({
     try {
       await StopProxy()
       set({ running: false })
+      toast().addToast('success', 'Proxy stopped')
     } catch (e) {
-      console.error('Failed to stop proxy:', e)
+      toast().addToast('error', `Failed to stop proxy: ${e}`)
     }
   },
 

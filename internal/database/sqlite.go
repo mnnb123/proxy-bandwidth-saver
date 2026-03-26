@@ -1,9 +1,12 @@
 package database
 
 import (
+	"crypto/rand"
 	"database/sql"
 	_ "embed"
+	"encoding/hex"
 	"fmt"
+	"log"
 	"strconv"
 
 	_ "modernc.org/sqlite"
@@ -134,6 +137,16 @@ func (db *DB) GetAllSettings() (map[string]string, error) {
 	return settings, rows.Err()
 }
 
+// generateSecurePassword returns a cryptographically random hex string of
+// the given byte-length (the returned string is twice as long).
+func generateSecurePassword(nBytes int) (string, error) {
+	b := make([]byte, nBytes)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("crypto/rand: %w", err)
+	}
+	return hex.EncodeToString(b), nil
+}
+
 func (db *DB) SeedDefaults() error {
 	defaults := map[string]string{
 		"http_port":               "8888",
@@ -161,7 +174,7 @@ func (db *DB) SeedDefaults() error {
 		"rotation_strategy":       "round-robin",
 		"sticky_session_minutes":  "5",
 		"web_username":            "admin",
-		"web_password":            "Nghia123456",
+		// web_password is handled separately below.
 	}
 
 	tx, err := db.Writer.Begin()
@@ -180,6 +193,25 @@ func (db *DB) SeedDefaults() error {
 		if _, err := stmt.Exec(k, v); err != nil {
 			return err
 		}
+	}
+
+	// Generate a random password only on first install (INSERT OR IGNORE
+	// is a no-op when the key already exists).
+	password, err := generateSecurePassword(16) // 32-char hex string
+	if err != nil {
+		return fmt.Errorf("generate password: %w", err)
+	}
+	res, err := stmt.Exec("web_password", password)
+	if err != nil {
+		return err
+	}
+	if rows, _ := res.RowsAffected(); rows > 0 {
+		log.Println("=========================================")
+		log.Println("  FIRST-RUN: generated web credentials")
+		log.Printf("  Username: admin")
+		log.Printf("  Password: %s", password)
+		log.Println("  (change these in Settings after login)")
+		log.Println("=========================================")
 	}
 
 	return tx.Commit()

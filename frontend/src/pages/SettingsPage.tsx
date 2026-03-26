@@ -7,6 +7,8 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { ClearCache, GetCACertPath, GetCacheStats } from '../lib/api'
 import { SettingsSkeleton } from '../components/ui/Skeleton'
 
+const INPUT_CLASS = "w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-[var(--radius-lg)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)]"
+
 function Section({ icon: Icon, title, desc, children }: {
   icon: typeof Server; title: string; desc: string; children: React.ReactNode
 }) {
@@ -50,7 +52,7 @@ function NumberInput({ value, onChange, min, max, step, id }: {
       min={min}
       max={max}
       step={step}
-      className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-[var(--radius-lg)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)] tabular-nums"
+      className={`${INPUT_CLASS} tabular-nums`}
     />
   )
 }
@@ -63,7 +65,7 @@ function SelectInput({ value, onChange, options, id }: {
       id={id}
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-[var(--radius-lg)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)]"
+      className={INPUT_CLASS}
     >
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -80,7 +82,7 @@ function TextInput({ value, onChange, placeholder, type = 'text', id }: {
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-[var(--radius-lg)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)]"
+      className={INPUT_CLASS}
     />
   )
 }
@@ -95,7 +97,7 @@ function TextAreaInput({ value, onChange, placeholder, rows = 3, id }: {
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-[var(--radius-lg)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)] resize-none"
+      className={`${INPUT_CLASS} resize-none`}
     />
   )
 }

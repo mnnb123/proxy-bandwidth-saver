@@ -58,10 +58,10 @@ func (a *HeadlessApp) Start() error {
 		log.Printf("Failed to seed default rules: %v", err)
 	}
 
-	a.loadSettingsIntoConfig()
+	LoadSettingsIntoConfig(a.db, a.cfg)
 
 	a.classifier = classifier.NewClassifier()
-	a.reloadClassifier()
+	ReloadClassifier(a.db.Reader, a.classifier)
 
 	cacheLayer, err := cache.NewCacheLayer(a.cfg.CacheDir, a.cfg.CacheMemoryMB, a.cfg.CacheDiskMB)
 	if err != nil {
@@ -78,7 +78,7 @@ func (a *HeadlessApp) Start() error {
 	a.upstream.StartHealthChecks(60 * time.Second)
 
 	a.proxyAuth = proxy.NewProxyAuth()
-	a.configureProxyAuth()
+	ConfigureProxyAuth(a.proxyAuth, a.cfg)
 	basePort := a.db.GetSettingInt("base_port", 30000)
 	var classifyFunc proxy.ClassifyFunc
 	if a.classifier != nil {
@@ -147,7 +147,7 @@ func (a *HeadlessApp) StartProxy() error {
 		return fmt.Errorf("proxy already running")
 	}
 
-	a.configureProxyAuth()
+	ConfigureProxyAuth(a.proxyAuth, a.cfg)
 
 	a.server = proxy.NewProxyServer(proxy.ServerConfig{
 		HTTPPort:    a.cfg.HTTPPort,
@@ -161,35 +161,7 @@ func (a *HeadlessApp) StartProxy() error {
 		a.cfg.IPWhitelistEnabled, a.cfg.IPWhitelist,
 	)
 
-	pipeline := proxy.NewDefaultPipeline()
-	if a.classifier != nil {
-		pipeline.Classifier = a.classifier.Classify
-	}
-	if a.cache != nil {
-		pipeline.CacheCheck = a.cache.CheckCache
-		pipeline.CacheStore = a.cache.StoreCache
-	}
-	if a.meter != nil {
-		pipeline.Meter = func(ctx *proxy.RequestCtx) {
-			respBytes := ctx.RespBytes
-			if ctx.TotalBytes() > ctx.ReqBytes {
-				respBytes = ctx.TotalBytes() - ctx.ReqBytes
-			}
-			a.meter.Record(meter.RequestLog{
-				Timestamp:     ctx.StartTime,
-				Domain:        ctx.Domain,
-				Method:        ctx.Request.Method,
-				URL:           ctx.Request.URL.String(),
-				Route:         string(ctx.Route),
-				RequestBytes:  ctx.ReqBytes,
-				ResponseBytes: respBytes,
-				Cached:        ctx.Cached,
-				ProxyID:       ctx.ProxyID,
-				LatencyMs:     time.Since(ctx.StartTime).Milliseconds(),
-			})
-		}
-	}
-	a.server.SetPipeline(pipeline)
+	a.server.SetPipeline(BuildPipeline(a.classifier, a.cache, a.meter))
 	return a.server.Start()
 }
 
@@ -247,62 +219,19 @@ func (a *HeadlessApp) emitRealtimeStats() {
 	}
 }
 
+// reloadClassifier delegates to the shared ReloadClassifier in appcore.go.
 func (a *HeadlessApp) reloadClassifier() {
-	if a.db == nil || a.classifier == nil {
-		return
-	}
-	rules, err := classifier.LoadRulesFromDB(a.db.Reader)
-	if err != nil {
-		log.Printf("Failed to load rules: %v", err)
-		return
-	}
-	a.classifier.Reload(rules)
-	log.Printf("Classifier reloaded with %d rules", len(rules))
+	ReloadClassifier(a.db.Reader, a.classifier)
 }
 
+// loadSettingsIntoConfig delegates to the shared LoadSettingsIntoConfig in appcore.go.
 func (a *HeadlessApp) loadSettingsIntoConfig() {
-	if a.db == nil {
-		return
-	}
-	a.cfg.HTTPPort = a.db.GetSettingInt("http_port", 8888)
-	a.cfg.SOCKS5Port = a.db.GetSettingInt("socks5_port", 8889)
-	a.cfg.MaxConcurrent = a.db.GetSettingInt("max_concurrent", 500)
-	a.cfg.CacheMemoryMB = a.db.GetSettingInt("cache_memory_mb", 512)
-	a.cfg.CacheDiskMB = a.db.GetSettingInt("cache_disk_mb", 2048)
-	a.cfg.MITMEnabled = a.db.GetSettingBool("mitm_enabled", false)
-	a.cfg.AcceptEncodingEnforce = a.db.GetSettingBool("accept_encoding_enforce", true)
-	a.cfg.HeaderStripping = a.db.GetSettingBool("header_stripping", true)
-	a.cfg.HTMLMinification = a.db.GetSettingBool("html_minification", false)
-	a.cfg.ImageRecompression = a.db.GetSettingBool("image_recompression", false)
-	a.cfg.ImageQuality = a.db.GetSettingInt("image_quality", 85)
-	a.cfg.LogRetentionDays = a.db.GetSettingInt("log_retention_days", 7)
-
-	if addr, err := a.db.GetSetting("bind_address"); err == nil && addr != "" {
-		a.cfg.BindAddress = addr
-	}
-
-	// Auth settings
-	a.cfg.ProxyAuthEnabled = a.db.GetSettingBool("proxy_auth_enabled", false)
-	if u, err := a.db.GetSetting("proxy_username"); err == nil && u != "" {
-		a.cfg.ProxyUsername = u
-	}
-	if p, err := a.db.GetSetting("proxy_password"); err == nil && p != "" {
-		a.cfg.ProxyPassword = p
-	}
-	a.cfg.IPWhitelistEnabled = a.db.GetSettingBool("ip_whitelist_enabled", false)
-	if wl, err := a.db.GetSetting("ip_whitelist"); err == nil {
-		a.cfg.IPWhitelist = wl
-	}
+	LoadSettingsIntoConfig(a.db, a.cfg)
 }
 
+// configureProxyAuth delegates to the shared ConfigureProxyAuth in appcore.go.
 func (a *HeadlessApp) configureProxyAuth() {
-	if a.proxyAuth == nil {
-		return
-	}
-	a.proxyAuth.Configure(
-		a.cfg.ProxyAuthEnabled, a.cfg.ProxyUsername, a.cfg.ProxyPassword,
-		a.cfg.IPWhitelistEnabled, a.cfg.IPWhitelist,
-	)
+	ConfigureProxyAuth(a.proxyAuth, a.cfg)
 }
 
 func (a *HeadlessApp) remapAllProxies() {

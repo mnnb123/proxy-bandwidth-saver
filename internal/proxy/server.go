@@ -135,7 +135,11 @@ func (s *ProxyServer) Start() error {
 	s.startTime = time.Now()
 
 	go func() {
-		srv := &http.Server{Handler: s.httpProxy}
+		srv := &http.Server{
+			Handler:           s.httpProxy,
+			ReadHeaderTimeout: 10 * time.Second,
+			IdleTimeout:       120 * time.Second,
+		}
 		if err := srv.Serve(httpLn); err != nil && ctx.Err() == nil {
 			log.Printf("HTTP proxy error: %v", err)
 		}
@@ -338,20 +342,20 @@ func extractDomain(host string) string {
 	return domain
 }
 
-// countingReadCloser wraps an io.ReadCloser to count bytes read
+// countingReadCloser wraps an io.ReadCloser to count bytes read (thread-safe)
 type countingReadCloser struct {
 	io.ReadCloser
-	n int64
+	n atomic.Int64
 }
 
 func (c *countingReadCloser) Read(p []byte) (int, error) {
 	n, err := c.ReadCloser.Read(p)
-	c.n += int64(n)
+	c.n.Add(int64(n))
 	return n, err
 }
 
 func (c *countingReadCloser) BytesRead() int64 {
-	return c.n
+	return c.n.Load()
 }
 
 // estimateRequestSize estimates the byte size of a request (method + URL + headers)

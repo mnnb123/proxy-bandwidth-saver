@@ -54,18 +54,5 @@ func ParseProxyLine(line string) (address, username, password, proxyType string,
 }
 
 func splitColon(s string) []string {
-	var parts []string
-	current := ""
-	for _, c := range s {
-		if c == ':' {
-			parts = append(parts, current)
-			current = ""
-		} else {
-			current += string(c)
-		}
-	}
-	if current != "" {
-		parts = append(parts, current)
-	}
-	return parts
+	return strings.Split(s, ":")
 }

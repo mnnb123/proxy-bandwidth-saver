@@ -252,6 +252,11 @@ func (a *App) emitRealtimeStats() {
 	}
 }
 
+// NOTE: reloadClassifier, loadSettingsIntoConfig, configureProxyAuth, and the
+// pipeline building logic in StartProxy are duplicated from the shared helpers in
+// internal/webapi/appcore.go. This copy exists because package main cannot import
+// webapi without creating a circular dependency. Keep both copies in sync.
+
 func (a *App) reloadClassifier() {
 	if a.db == nil || a.classifier == nil {
 		return

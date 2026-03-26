@@ -43,25 +43,25 @@ func NewDiskCache(path string, maxSizeMB int) (*DiskCache, error) {
 }
 
 func (d *DiskCache) Get(key string) (*CacheEntry, bool) {
-	var data []byte
+	var cachedData []byte
 	d.db.View(func(tx *bolt.Tx) error {
 		b := tx.Bucket(cacheBucket)
 		if b == nil {
 			return nil
 		}
-		v := b.Get([]byte(key))
-		if v != nil {
-			data = make([]byte, len(v))
-			copy(data, v)
+		cachedValue := b.Get([]byte(key))
+		if cachedValue != nil {
+			cachedData = make([]byte, len(cachedValue))
+			copy(cachedData, cachedValue)
 		}
 		return nil
 	})
 
-	if data == nil {
+	if cachedData == nil {
 		return nil, false
 	}
 
-	entry, err := DecodeEntry(data)
+	entry, err := DecodeEntry(cachedData)
 	if err != nil {
 		return nil, false
 	}

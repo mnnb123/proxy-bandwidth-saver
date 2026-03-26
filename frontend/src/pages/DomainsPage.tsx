@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, memo } from 'react'
 import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { GetDomainStats, ClearDomainStats, GetOutputProxies, GetSettings, UpdateSetting } from '../lib/api'
 import { formatBytes, copyToClipboard } from '../lib/format'
@@ -35,33 +35,61 @@ const AUTO_CLEAR_OPTIONS = [
 
 const SHOW_OPTIONS = [25, 50, 100, 200]
 
-// Row background colors matching screenshot
-const rowBg: Record<string, string> = {
-  residential: 'bg-red-50 dark:bg-red-950/30',
-  datacenter: 'bg-blue-50 dark:bg-blue-950/30',
-  direct: 'bg-emerald-50 dark:bg-emerald-950/30',
-  bypass: 'bg-yellow-50 dark:bg-yellow-950/20',
-  bypass_vps: 'bg-emerald-50 dark:bg-emerald-950/30',
-  block: 'bg-orange-50 dark:bg-orange-950/30',
+const ROUTE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+  residential: { label: 'PROXY', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30' },
+  datacenter: { label: 'DATACENTER', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30' },
+  direct: { label: 'BYPASS VPS', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  bypass: { label: 'BYPASS', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-yellow-50 dark:bg-yellow-950/20' },
+  bypass_vps: { label: 'BYPASS VPS', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
+  block: { label: 'BLOCK', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30' },
 }
 
-const statusLabel: Record<string, string> = {
-  residential: 'PROXY',
-  datacenter: 'DATACENTER',
-  direct: 'BYPASS VPS',
-  bypass: 'BYPASS',
-  bypass_vps: 'BYPASS VPS',
-  block: 'BLOCK',
+interface DomainRowProps {
+  stat: DomainStat
+  port: number | string
+  copiedDomain: string
+  copyDomain: (domain: string) => void
 }
 
-const statusColor: Record<string, string> = {
-  residential: 'text-red-600 dark:text-red-400',
-  datacenter: 'text-blue-600 dark:text-blue-400',
-  direct: 'text-emerald-600 dark:text-emerald-400',
-  bypass: 'text-amber-600 dark:text-amber-400',
-  bypass_vps: 'text-emerald-600 dark:text-emerald-400',
-  block: 'text-orange-600 dark:text-orange-400',
-}
+const DomainRow = memo(function DomainRow({ stat, port, copiedDomain, copyDomain }: DomainRowProps) {
+  const cfg = ROUTE_CONFIG[stat.route]
+  const bg = cfg?.bg || ''
+  const label = cfg?.label || stat.route.toUpperCase()
+  const color = cfg?.color || 'text-[var(--color-text-muted)]'
+  return (
+    <tr
+      className={`border-b border-[var(--color-border-subtle)] ${bg} hover:brightness-95 dark:hover:brightness-110 transition-all`}
+    >
+      <td className="px-4 py-2 text-xs font-mono font-bold text-[var(--color-text-primary)]">
+        {port || 'main'}
+      </td>
+      <td className="px-4 py-2">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="text-xs font-mono text-[var(--color-text-primary)]">{stat.domain}</span>
+          <button
+            onClick={() => copyDomain(stat.domain)}
+            className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 text-[var(--color-text-muted)] opacity-60 hover:opacity-100 transition-opacity"
+            title="Copy domain"
+          >
+            {copiedDomain === stat.domain
+              ? <Check size={12} className="text-emerald-500" />
+              : <Copy size={12} />
+            }
+          </button>
+        </span>
+      </td>
+      <td className="px-4 py-2">
+        <span className={`text-xs font-bold ${color}`}>{label}</span>
+      </td>
+      <td className="px-4 py-2 text-right text-xs font-mono font-semibold text-[var(--color-text-primary)]">
+        {formatBytes(stat.totalBytes)}
+      </td>
+      <td className="px-4 py-2 text-right text-xs font-mono text-[var(--color-text-muted)]">
+        {stat.lastSeen || '-'}
+      </td>
+    </tr>
+  )
+})
 
 export default function DomainsPage() {
   const [stats, setStats] = useState<DomainStat[]>([])
@@ -129,8 +157,8 @@ export default function DomainsPage() {
   const filtered = useMemo(() => {
     let result = stats
     if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter((s) => s.domain.toLowerCase().includes(q))
+      const searchQuery = search.toLowerCase()
+      result = result.filter((s) => s.domain.toLowerCase().includes(searchQuery))
     }
     const dir = sortDir === 'asc' ? 1 : -1
     result = [...result].sort((a, b) => {
@@ -138,9 +166,9 @@ export default function DomainsPage() {
         case 'totalBytes': return (a.totalBytes - b.totalBytes) * dir
         case 'lastSeen': return (a.lastSeen || '').localeCompare(b.lastSeen || '') * dir
         case 'route': {
-          const la = statusLabel[a.route] || a.route
-          const lb = statusLabel[b.route] || b.route
-          return la.localeCompare(lb) * dir
+          const labelA = (ROUTE_CONFIG[a.route]?.label) || a.route
+          const labelB = (ROUTE_CONFIG[b.route]?.label) || b.route
+          return labelA.localeCompare(labelB) * dir
         }
         case 'domain': return a.domain.localeCompare(b.domain) * dir
         case 'port': return ((portMap[a.proxyId] || a.proxyId) - (portMap[b.proxyId] || b.proxyId)) * dir
@@ -305,46 +333,15 @@ export default function DomainsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((stat, i) => {
-                  const port = portMap[stat.proxyId] || stat.proxyId
-                  const bg = rowBg[stat.route] || ''
-                  const label = statusLabel[stat.route] || stat.route.toUpperCase()
-                  const color = statusColor[stat.route] || 'text-[var(--color-text-muted)]'
-                  return (
-                    <tr
-                      key={`${stat.domain}-${stat.proxyId}-${i}`}
-                      className={`border-b border-[var(--color-border-subtle)] ${bg} hover:brightness-95 dark:hover:brightness-110 transition-all`}
-                    >
-                      <td className="px-4 py-2 text-xs font-mono font-bold text-[var(--color-text-primary)]">
-                        {port || 'main'}
-                      </td>
-                      <td className="px-4 py-2">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span className="text-xs font-mono text-[var(--color-text-primary)]">{stat.domain}</span>
-                          <button
-                            onClick={() => copyDomain(stat.domain)}
-                            className="p-0.5 rounded hover:bg-black/10 dark:hover:bg-white/10 text-[var(--color-text-muted)] opacity-60 hover:opacity-100 transition-opacity"
-                            title="Copy domain"
-                          >
-                            {copiedDomain === stat.domain
-                              ? <Check size={12} className="text-emerald-500" />
-                              : <Copy size={12} />
-                            }
-                          </button>
-                        </span>
-                      </td>
-                      <td className="px-4 py-2">
-                        <span className={`text-xs font-bold ${color}`}>{label}</span>
-                      </td>
-                      <td className="px-4 py-2 text-right text-xs font-mono font-semibold text-[var(--color-text-primary)]">
-                        {formatBytes(stat.totalBytes)}
-                      </td>
-                      <td className="px-4 py-2 text-right text-xs font-mono text-[var(--color-text-muted)]">
-                        {stat.lastSeen || '-'}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {filtered.map((stat, i) => (
+                  <DomainRow
+                    key={`${stat.domain}-${stat.proxyId}-${i}`}
+                    stat={stat}
+                    port={portMap[stat.proxyId] || stat.proxyId}
+                    copiedDomain={copiedDomain}
+                    copyDomain={copyDomain}
+                  />
+                ))}
               </tbody>
             </table>
           </div>

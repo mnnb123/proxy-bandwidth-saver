@@ -123,7 +123,11 @@ func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 	if pm.auth != nil {
 		handler = pm.auth.WrapHandler(forwarder)
 	}
-	httpSrv := &http.Server{Handler: handler}
+	httpSrv := &http.Server{
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	go func() {
 		if err := httpSrv.Serve(httpLn); err != nil && err != http.ErrServerClosed {
 			log.Printf("PortMapper: http serve error on %s: %v", httpAddr, err)

@@ -5,8 +5,23 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"sync"
 	"sync/atomic"
 	"time"
+)
+
+// Buffer pools to avoid per-connection heap allocations.
+var (
+	// greetBufPool serves the 258-byte buffers used for the SOCKS5
+	// greeting and CONNECT request parsing.
+	greetBufPool = sync.Pool{
+		New: func() any { return make([]byte, 258) },
+	}
+	// authBufPool serves the 515-byte buffers used for username/password
+	// sub-negotiation (RFC 1929).
+	authBufPool = sync.Pool{
+		New: func() any { return make([]byte, 515) },
+	}
 )
 
 // socks5Listener accepts SOCKS5 connections and forwards them through an upstream proxy.
@@ -33,7 +48,8 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 	defer conn.Close()
 
 	// 1. SOCKS5 greeting
-	buf := make([]byte, 258)
+	buf := greetBufPool.Get().([]byte)
+	defer greetBufPool.Put(buf)
 	n, err := conn.Read(buf)
 	if err != nil || n < 2 || buf[0] != 0x05 {
 		return
@@ -97,46 +113,21 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 
 	// Block: reject
 	if route == RouteBlock {
-		if s.meter != nil {
-			s.meter(targetHost, 0, 0, s.proxyID, "block")
-		}
+		s.recordMeter(targetHost, 0, 0, "block")
 		conn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // connection not allowed
 		return
 	}
 
 	// Bypass: PAC file should handle this (client connects directly)
 	if route == RouteBypass {
-		if s.meter != nil {
-			s.meter(targetHost, 0, 0, s.proxyID, "bypass")
-		}
+		s.recordMeter(targetHost, 0, 0, "bypass")
 		conn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // connection not allowed
 		return
 	}
 
 	// 3. Connect: direct or via upstream
-	var upConn net.Conn
-	if route == RouteDirect {
-		// Bypass: connect directly to target
-		upConn, err = net.DialTimeout("tcp", target, 10*time.Second)
-	} else {
-		// Normal: connect via upstream proxy
-		upConn, err = net.DialTimeout("tcp", s.upstream.Address, 10*time.Second)
-		if err == nil {
-			var hsErr error
-			if s.upstream.Type == "socks5" {
-				hsErr = socks5Handshake(upConn, target, s.upstream.Username, s.upstream.Password)
-			} else {
-				hsErr = httpConnectHandshake(upConn, target, s.upstream.Username, s.upstream.Password)
-			}
-			if hsErr != nil {
-				upConn.Close()
-				conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
-				return
-			}
-		}
-	}
-
-	if err != nil {
+	upConn, dialErr := s.dialUpstream(route, target)
+	if dialErr != nil {
 		conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
 	}
@@ -144,28 +135,62 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 	// 5. Success response
 	conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 
-	// 6. Relay with byte counting
+	// 6. Relay with byte counting — close both conns from outside goroutine to prevent leak
 	var upBytes, downBytes atomic.Int64
+	done := make(chan struct{})
 	go func() {
 		n, _ := io.Copy(upConn, conn)
 		upBytes.Store(n)
-		upConn.Close()
+		close(done)
 	}()
 	n2, _ := io.Copy(conn, upConn)
 	downBytes.Store(n2)
+	upConn.Close()
+	<-done
 
 	// Record to meter
-	if s.meter != nil {
-		routeStr := string(route)
-		if routeStr == "" {
-			routeStr = "residential"
-		}
-		s.meter(targetHost, upBytes.Load(), downBytes.Load(), s.proxyID, routeStr)
+	s.recordMeter(targetHost, upBytes.Load(), downBytes.Load(), route)
+}
+
+// recordMeter records bandwidth data to the meter callback, defaulting empty routes to "residential".
+func (s *socks5Listener) recordMeter(domain string, reqBytes, respBytes int64, route Route) {
+	if s.meter == nil {
+		return
 	}
+	routeStr := string(route)
+	if routeStr == "" {
+		routeStr = "residential"
+	}
+	s.meter(domain, reqBytes, respBytes, s.proxyID, routeStr)
+}
+
+// dialUpstream connects to the target directly or via upstream proxy.
+func (s *socks5Listener) dialUpstream(route Route, target string) (net.Conn, error) {
+	if route == RouteDirect {
+		return net.DialTimeout("tcp", target, 10*time.Second)
+	}
+
+	conn, err := net.DialTimeout("tcp", s.upstream.Address, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	var handshakeErr error
+	if s.upstream.Type == "socks5" {
+		handshakeErr = socks5Handshake(conn, target, s.upstream.Username, s.upstream.Password)
+	} else {
+		handshakeErr = httpConnectHandshake(conn, target, s.upstream.Username, s.upstream.Password)
+	}
+	if handshakeErr != nil {
+		conn.Close()
+		return nil, handshakeErr
+	}
+	return conn, nil
 }
 
 func (s *socks5Listener) doAuth(conn net.Conn) error {
-	buf := make([]byte, 515)
+	buf := authBufPool.Get().([]byte)
+	defer authBufPool.Put(buf)
 	n, err := conn.Read(buf)
 	if err != nil || n < 3 || buf[0] != 0x01 {
 		conn.Write([]byte{0x01, 0x01})

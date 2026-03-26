@@ -2,12 +2,9 @@ package webapi
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"strconv"
-	"strings"
 )
 
 // AppBackend is the interface the API layer needs from the app.
@@ -60,7 +57,7 @@ type AppBackend interface {
 }
 
 // AppVersion is the application version string, set at build time or here.
-var AppVersion = "1.0.2"
+var AppVersion = "1.1.0"
 
 // Router creates the HTTP API handler.
 func Router(app AppBackend) http.Handler {
@@ -71,351 +68,23 @@ func Router(app AppBackend) http.Handler {
 		writeJSON(w, map[string]string{"version": AppVersion})
 	}))
 
-	// Proxy control
-	mux.HandleFunc("/api/proxy/start", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.StartProxy(); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	mux.HandleFunc("/api/proxy/stop", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.StopProxy(); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	mux.HandleFunc("/api/proxy/status", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetProxyStatusJSON())
-	}))
-
-	// Rules
-	mux.HandleFunc("/api/rules", cors(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			writeJSON(w, app.GetRulesJSON())
-		case http.MethodPost:
-			var body struct {
-				RuleType string `json:"ruleType"`
-				Pattern  string `json:"pattern"`
-				Action   string `json:"action"`
-				Priority int    `json:"priority"`
-			}
-			if err := readJSON(r, &body); err != nil {
-				writeError(w, err)
-				return
-			}
-			if err := app.AddRule(body.RuleType, body.Pattern, body.Action, body.Priority); err != nil {
-				writeError(w, err)
-				return
-			}
-			writeJSON(w, map[string]bool{"ok": true})
-		default:
-			http.Error(w, "method not allowed", 405)
-		}
-	}))
-
-	mux.HandleFunc("/api/rules/clear", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.ClearAllRules(); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	mux.HandleFunc("/api/rules/bulk", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		var body struct {
-			Patterns []string `json:"patterns"`
-			Action   string   `json:"action"`
-			Priority int      `json:"priority"`
-		}
-		if err := readJSON(r, &body); err != nil {
-			writeError(w, err)
-			return
-		}
-		count, err := app.AddBulkRules(body.Patterns, body.Action, body.Priority)
-		if err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]int{"count": count})
-	}))
-
-	mux.HandleFunc("/api/rules/", cors(func(w http.ResponseWriter, r *http.Request) {
-		idStr := strings.TrimPrefix(r.URL.Path, "/api/rules/")
-		parts := strings.Split(idStr, "/")
-		id, err := strconv.Atoi(parts[0])
-		if err != nil {
-			writeError(w, fmt.Errorf("invalid id"))
-			return
-		}
-
-		switch r.Method {
-		case http.MethodPut:
-			var body struct {
-				RuleType string `json:"ruleType"`
-				Pattern  string `json:"pattern"`
-				Action   string `json:"action"`
-				Priority int    `json:"priority"`
-				Enabled  bool   `json:"enabled"`
-			}
-			if err := readJSON(r, &body); err != nil {
-				writeError(w, err)
-				return
-			}
-			if err := app.UpdateRuleById(id, body.RuleType, body.Pattern, body.Action, body.Priority, body.Enabled); err != nil {
-				writeError(w, err)
-				return
-			}
-			writeJSON(w, map[string]bool{"ok": true})
-		case http.MethodDelete:
-			if err := app.DeleteRule(id); err != nil {
-				writeError(w, err)
-				return
-			}
-			writeJSON(w, map[string]bool{"ok": true})
-		default:
-			http.Error(w, "method not allowed", 405)
-		}
-	}))
-
-	mux.HandleFunc("/api/rules/toggle", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		var body struct {
-			ID      int  `json:"id"`
-			Enabled bool `json:"enabled"`
-		}
-		if err := readJSON(r, &body); err != nil {
-			writeError(w, err)
-			return
-		}
-		if err := app.ToggleRule(body.ID, body.Enabled); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	mux.HandleFunc("/api/rules/test", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		var body struct {
-			Domain      string `json:"domain"`
-			URL         string `json:"url"`
-			ContentType string `json:"contentType"`
-		}
-		if err := readJSON(r, &body); err != nil {
-			writeError(w, err)
-			return
-		}
-		result := app.TestRule(body.Domain, body.URL, body.ContentType)
-		writeJSON(w, map[string]string{"result": result})
-	}))
-
-	mux.HandleFunc("/api/rules/import", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		var body struct {
-			Data string `json:"data"`
-		}
-		if err := readJSON(r, &body); err != nil {
-			writeError(w, err)
-			return
-		}
-		count := app.ImportRules(body.Data)
-		writeJSON(w, map[string]int{"count": count})
-	}))
-
-	mux.HandleFunc("/api/rules/export", cors(func(w http.ResponseWriter, r *http.Request) {
-		data := app.ExportRules()
-		writeJSON(w, map[string]string{"data": data})
-	}))
-
-	// Proxies
-	mux.HandleFunc("/api/proxies", cors(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			writeJSON(w, app.GetProxiesJSON())
-		case http.MethodPost:
-			var body struct {
-				Address  string `json:"address"`
-				Username string `json:"username"`
-				Password string `json:"password"`
-				Type     string `json:"type"`
-				Category string `json:"category"`
-			}
-			if err := readJSON(r, &body); err != nil {
-				writeError(w, err)
-				return
-			}
-			if err := app.AddProxy(body.Address, body.Username, body.Password, body.Type, body.Category); err != nil {
-				writeError(w, err)
-				return
-			}
-			writeJSON(w, map[string]bool{"ok": true})
-		default:
-			http.Error(w, "method not allowed", 405)
-		}
-	}))
-
-	mux.HandleFunc("/api/proxies/", cors(func(w http.ResponseWriter, r *http.Request) {
-		idStr := strings.TrimPrefix(r.URL.Path, "/api/proxies/")
-		id, err := strconv.Atoi(idStr)
-		if err != nil {
-			writeError(w, fmt.Errorf("invalid id"))
-			return
-		}
-		if r.Method != http.MethodDelete {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.DeleteProxy(id); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	mux.HandleFunc("/api/proxies/import", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		var body struct {
-			Data string `json:"data"`
-		}
-		if err := readJSON(r, &body); err != nil {
-			writeError(w, err)
-			return
-		}
-		count := app.ImportProxies(body.Data)
-		writeJSON(w, map[string]int{"count": count})
-	}))
-
-	mux.HandleFunc("/api/proxies/output", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetOutputProxiesJSON())
-	}))
-
-	// Stats
-	mux.HandleFunc("/api/stats/realtime", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetRealtimeStatsJSON())
-	}))
-
-	mux.HandleFunc("/api/stats/cost", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetCostSummaryJSON())
-	}))
-
-	mux.HandleFunc("/api/stats/budget", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetBudgetStatusJSON())
-	}))
-
-	mux.HandleFunc("/api/stats/domains", cors(func(w http.ResponseWriter, r *http.Request) {
-		period := r.URL.Query().Get("period")
-		if period == "" {
-			period = "24h"
-		}
-		proxyIDStr := r.URL.Query().Get("proxyId")
-		proxyID := 0
-		if proxyIDStr != "" {
-			proxyID, _ = strconv.Atoi(proxyIDStr)
-		}
-		if proxyID > 0 {
-			writeJSON(w, app.GetDomainStatsByPortJSON(period, proxyID))
-		} else {
-			writeJSON(w, app.GetDomainStatsJSON(period))
-		}
-	}))
-
-	mux.HandleFunc("/api/stats/domains/clear", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.ClearDomainStats(); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	// Cache
-	mux.HandleFunc("/api/cache/stats", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, app.GetCacheStatsJSON())
-	}))
-
-	mux.HandleFunc("/api/cache/clear", cors(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "method not allowed", 405)
-			return
-		}
-		if err := app.ClearCache(); err != nil {
-			writeError(w, err)
-			return
-		}
-		writeJSON(w, map[string]bool{"ok": true})
-	}))
-
-	// Settings
-	mux.HandleFunc("/api/settings", cors(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodGet:
-			writeJSON(w, app.GetSettingsJSON())
-		case http.MethodPut:
-			var body struct {
-				Key   string `json:"key"`
-				Value string `json:"value"`
-			}
-			if err := readJSON(r, &body); err != nil {
-				writeError(w, err)
-				return
-			}
-			if err := app.UpdateSetting(body.Key, body.Value); err != nil {
-				writeError(w, err)
-				return
-			}
-			writeJSON(w, map[string]bool{"ok": true})
-		default:
-			http.Error(w, "method not allowed", 405)
-		}
-	}))
-
-	// CA cert
-	mux.HandleFunc("/api/cert/path", cors(func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, map[string]string{"path": app.GetCACertPath()})
-	}))
+	// Register route groups
+	registerProxyRoutes(mux, app)
+	registerRulesRoutes(mux, app)
+	registerProxiesRoutes(mux, app)
+	registerStatsRoutes(mux, app)
+	registerSettingsRoutes(mux, app)
 
 	return mux
 }
 
 func cors(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
+		origin := r.Header.Get("Origin")
+		if origin != "" {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+			w.Header().Set("Vary", "Origin")
+		}
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {

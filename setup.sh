@@ -6,7 +6,7 @@
 set -euo pipefail
 
 APP_NAME="proxy-bandwidth-saver"
-APP_VERSION="1.0.2"
+APP_VERSION="1.1.0"
 REPO_URL="https://github.com/mnnb123/proxy-bandwidth-saver.git"
 INSTALL_DIR="/usr/local/bin"
 DATA_DIR="/var/lib/${APP_NAME}"

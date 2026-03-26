@@ -82,9 +82,7 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Block: return 204 No Content
 	if route == RouteBlock {
-		if f.meter != nil {
-			f.meter(domain, 0, 0, f.proxyID, "block")
-		}
+		f.recordMeter(domain, 0, 0, "block")
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -92,9 +90,7 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	// Bypass: PAC file should handle this domain (client connects directly).
 	// Return 502 so client knows this proxy won't serve it.
 	if route == RouteBypass {
-		if f.meter != nil {
-			f.meter(domain, 0, 0, f.proxyID, "bypass")
-		}
+		f.recordMeter(domain, 0, 0, "bypass")
 		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
 		return
 	}
@@ -123,13 +119,7 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	respBytes, _ := io.Copy(w, resp.Body)
 
-	if f.meter != nil {
-		routeStr := string(route)
-		if routeStr == "" {
-			routeStr = "residential"
-		}
-		f.meter(domain, reqBytes, respBytes, f.proxyID, routeStr)
-	}
+	f.recordMeter(domain, reqBytes, respBytes, route)
 }
 
 // handleConnect handles HTTPS tunneling (CONNECT method) via upstream proxy.
@@ -140,46 +130,20 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	// Block: reject connection
 	if route == RouteBlock {
-		if f.meter != nil {
-			f.meter(domain, 0, 0, f.proxyID, "block")
-		}
+		f.recordMeter(domain, 0, 0, "block")
 		http.Error(w, "blocked", http.StatusForbidden)
 		return
 	}
 
 	// Bypass: PAC file should handle this (client connects directly)
 	if route == RouteBypass {
-		if f.meter != nil {
-			f.meter(domain, 0, 0, f.proxyID, "bypass")
-		}
+		f.recordMeter(domain, 0, 0, "bypass")
 		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
 		return
 	}
 
-	var upConn net.Conn
-	var err error
-
-	if route == RouteDirect {
-		// Bypass: connect directly to target, no upstream proxy
-		upConn, err = net.DialTimeout("tcp", r.Host, 10*time.Second)
-	} else {
-		// Normal: connect via upstream proxy
-		upConn, err = net.DialTimeout("tcp", f.upstream.Address, 10*time.Second)
-		if err == nil {
-			var handshakeErr error
-			if f.upstream.Type == "socks5" {
-				handshakeErr = socks5Handshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
-			} else {
-				handshakeErr = httpConnectHandshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
-			}
-			if handshakeErr != nil {
-				upConn.Close()
-				http.Error(w, handshakeErr.Error(), http.StatusBadGateway)
-				return
-			}
-		}
-	}
-
+	// Connect to target: direct or via upstream proxy
+	upConn, err := f.dialUpstream(route, r.Host)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -199,24 +163,57 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
-	// Use counting relay to track bytes
+	// Relay with byte counting — close both conns from outside goroutine to prevent leak
 	var upBytes, downBytes atomic.Int64
+	done := make(chan struct{})
 	go func() {
 		n, _ := io.Copy(upConn, clientConn)
 		upBytes.Store(n)
-		upConn.Close()
+		close(done)
 	}()
 	n, _ := io.Copy(clientConn, upConn)
 	downBytes.Store(n)
+	upConn.Close()
 	clientConn.Close()
+	<-done
 
-	if f.meter != nil {
-		routeStr := string(route)
-		if routeStr == "" {
-			routeStr = "residential"
-		}
-		f.meter(domain, upBytes.Load(), downBytes.Load(), f.proxyID, routeStr)
+	f.recordMeter(domain, upBytes.Load(), downBytes.Load(), route)
+}
+
+// dialUpstream connects to the target directly or via upstream proxy with handshake.
+func (f *proxyForwarder) dialUpstream(route Route, targetHost string) (net.Conn, error) {
+	if route == RouteDirect {
+		return net.DialTimeout("tcp", targetHost, 10*time.Second)
 	}
+
+	conn, err := net.DialTimeout("tcp", f.upstream.Address, 10*time.Second)
+	if err != nil {
+		return nil, err
+	}
+
+	var handshakeErr error
+	if f.upstream.Type == "socks5" {
+		handshakeErr = socks5Handshake(conn, targetHost, f.upstream.Username, f.upstream.Password)
+	} else {
+		handshakeErr = httpConnectHandshake(conn, targetHost, f.upstream.Username, f.upstream.Password)
+	}
+	if handshakeErr != nil {
+		conn.Close()
+		return nil, handshakeErr
+	}
+	return conn, nil
+}
+
+// recordMeter records bandwidth data to the meter callback, defaulting empty routes to "residential".
+func (f *proxyForwarder) recordMeter(domain string, reqBytes, respBytes int64, route Route) {
+	if f.meter == nil {
+		return
+	}
+	routeStr := string(route)
+	if routeStr == "" {
+		routeStr = "residential"
+	}
+	f.meter(domain, reqBytes, respBytes, f.proxyID, routeStr)
 }
 
 // httpConnectHandshake sends HTTP CONNECT to upstream proxy.
