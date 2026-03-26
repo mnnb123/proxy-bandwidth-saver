@@ -20,8 +20,10 @@ type Rule struct {
 
 func parseRoute(action string) proxy.Route {
 	switch strings.ToLower(action) {
-	case "direct", "bypass", "bypass_vps":
-		return proxy.RouteDirect
+	case "bypass":
+		return proxy.RouteBypass // client connects directly (local IP) via PAC file
+	case "direct", "bypass_vps":
+		return proxy.RouteDirect // proxy connects directly (VPS IP), no upstream
 	case "datacenter":
 		return proxy.RouteDatacenter
 	case "residential":

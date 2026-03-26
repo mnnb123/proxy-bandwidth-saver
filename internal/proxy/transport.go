@@ -73,6 +73,8 @@ func (tm *TransportManager) GetTransport(route Route) *http.Transport {
 		return tm.datacenter
 	case RouteResidential:
 		return tm.residential
+	case RouteDirect, RouteBypass:
+		return tm.direct
 	default:
 		return tm.direct
 	}

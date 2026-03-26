@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 
 	"proxy-bandwidth-saver/internal/config"
@@ -51,6 +52,22 @@ func main() {
 
 	// Main HTTP server mux
 	mainMux := http.NewServeMux()
+
+	// PAC file endpoint (no auth - browsers need to fetch this before proxy config)
+	mainMux.HandleFunc("/proxy.pac", func(w http.ResponseWriter, r *http.Request) {
+		proxyAddr := r.URL.Query().Get("proxy")
+		if proxyAddr == "" {
+			// Default: use this server's address with main HTTP proxy port
+			host := r.Host
+			if idx := strings.Index(host, ":"); idx >= 0 {
+				host = host[:idx]
+			}
+			proxyAddr = fmt.Sprintf("%s:%d", host, cfg.HTTPPort)
+		}
+		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Write([]byte(app.GeneratePAC(proxyAddr)))
+	})
 
 	// SSE events endpoint
 	mainMux.Handle("/api/events", events)

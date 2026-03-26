@@ -52,6 +52,9 @@ type AppBackend interface {
 
 	// Certs
 	GetCACertPath() string
+
+	// PAC
+	GeneratePAC(proxyAddr string) string
 }
 
 // Router creates the HTTP API handler.

@@ -14,7 +14,7 @@ const EXT_GROUPS = [
   { label: 'Audio', exts: ['.mp3', '.wav', '.ogg', '.flac', '.aac', '.m4a', '.wma'] },
   { label: 'Fonts', exts: ['.woff', '.woff2', '.ttf', '.eot', '.otf'] },
   { label: 'Static', exts: ['.css', '.js', '.map', '.json', '.xml', '.txt'] },
-  { label: 'Files', exts: ['.zip', '.rar', '.7z', '.tar', '.gz', '.pdf', '.doc', '.xls'] },
+  { label: 'Files', exts: ['.zip', '.rar', '.7z', '.tar', '.gz', '.pdf', '.doc', '.xls', '.exe', '.msi', '.dmg', '.deb', '.rpm'] },
 ]
 
 type TabKey = 'domain' | 'extension'

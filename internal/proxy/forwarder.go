@@ -86,6 +86,13 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Bypass: PAC file should handle this domain (client connects directly).
+	// Return 502 so client knows this proxy won't serve it.
+	if route == RouteBypass {
+		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
+		return
+	}
+
 	r.RequestURI = ""
 
 	// Bypass/Direct: use direct transport (no upstream proxy)
@@ -124,6 +131,12 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 	// Block: reject connection
 	if route == RouteBlock {
 		http.Error(w, "blocked", http.StatusForbidden)
+		return
+	}
+
+	// Bypass: PAC file should handle this (client connects directly)
+	if route == RouteBypass {
+		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
 		return
 	}
 

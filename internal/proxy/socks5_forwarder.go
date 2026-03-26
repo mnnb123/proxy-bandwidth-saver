@@ -101,6 +101,12 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 		return
 	}
 
+	// Bypass: PAC file should handle this (client connects directly)
+	if route == RouteBypass {
+		conn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // connection not allowed
+		return
+	}
+
 	// 3. Connect: direct or via upstream
 	var upConn net.Conn
 	if route == RouteDirect {

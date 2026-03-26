@@ -267,6 +267,12 @@ func (s *ProxyServer) setupHTTPProxy() error {
 			return req, goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusNoContent, "")
 		}
 
+		// Bypass: PAC file should handle this. If request still arrives,
+		// treat as direct (server's own IP) as fallback.
+		if rctx.Route == RouteBypass {
+			rctx.Route = RouteDirect
+		}
+
 		// Cache check
 		if cachedResp := s.pipeline.CacheCheck(rctx); cachedResp != nil {
 			rctx.Cached = true
