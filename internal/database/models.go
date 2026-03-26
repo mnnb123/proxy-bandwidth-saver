@@ -136,6 +136,7 @@ type OutputProxy struct {
 	ProxyID   int    `json:"proxyId"`
 	LocalAddr string `json:"localAddr"` // e.g. "127.0.0.1:30000"
 	LocalPort int    `json:"localPort"`
+	Protocol  string `json:"protocol"`  // "http" or "socks5" (output protocol)
 	Upstream  string `json:"upstream"`  // upstream address
-	Type      string `json:"type"`      // http or socks5
+	Type      string `json:"type"`      // upstream type
 }

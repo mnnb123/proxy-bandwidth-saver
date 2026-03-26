@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Globe, RefreshCw, ArrowUpDown } from 'lucide-react'
 import { GetDomainStats } from '../lib/api'
 import { formatBytes } from '../lib/format'
@@ -32,20 +32,29 @@ export default function DomainsPage() {
   const [period, setPeriod] = useState('24h')
   const [sortBy, setSortBy] = useState<'totalBytes' | 'requests'>('totalBytes')
 
-  const fetchStats = useCallback(async (p: string) => {
-    setLoading(true)
+  const fetchStats = useCallback(async (p: string, silent = false) => {
+    if (!silent) setLoading(true)
     try {
       const data = await GetDomainStats(p)
       setStats(data || [])
     } catch {
-      setStats([])
+      if (!silent) setStats([])
     }
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [])
 
+  // Initial load
   useEffect(() => {
     fetchStats(period)
   }, [period, fetchStats])
+
+  // Auto-refresh every 3 seconds (silent, no loading spinner)
+  const periodRef = useRef(period)
+  periodRef.current = period
+  useEffect(() => {
+    const interval = setInterval(() => fetchStats(periodRef.current, true), 3000)
+    return () => clearInterval(interval)
+  }, [fetchStats])
 
   const sorted = [...stats].sort((a, b) => b[sortBy] - a[sortBy])
 

@@ -38,8 +38,8 @@ func GetPublicAddr(bind string) string {
 	return bind
 }
 
-// PortMapper creates individual local HTTP proxy listeners, each forwarding
-// all traffic through a specific upstream proxy.
+// PortMapper creates individual local proxy listeners (HTTP + SOCKS5),
+// each forwarding all traffic through a specific upstream proxy.
 type PortMapper struct {
 	mu       sync.Mutex
 	entries  map[int]*portMapEntry
@@ -52,11 +52,15 @@ type PortMapper struct {
 
 type portMapEntry struct {
 	proxyID   int
-	localPort int
-	localAddr string
+	httpPort  int
+	socks5Port int
 	upstream  UpstreamInfo
-	server    *http.Server
-	listener  net.Listener
+
+	httpServer   *http.Server
+	httpListener net.Listener
+
+	socks5Listener net.Listener
+	socks5Cancel   context.CancelFunc
 }
 
 // UpstreamInfo holds upstream proxy connection details.
@@ -69,11 +73,12 @@ type UpstreamInfo struct {
 
 // MappedProxy represents a single local->upstream port mapping.
 type MappedProxy struct {
-	ProxyID   int    `json:"proxyId"`
-	LocalAddr string `json:"localAddr"`
-	LocalPort int    `json:"localPort"`
-	Upstream  string `json:"upstream"`
-	Type      string `json:"type"`
+	ProxyID    int    `json:"proxyId"`
+	LocalAddr  string `json:"localAddr"`
+	LocalPort  int    `json:"localPort"`
+	Protocol   string `json:"protocol"` // "http" or "socks5"
+	Upstream   string `json:"upstream"`
+	Type       string `json:"type"`
 }
 
 func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth) *PortMapper {
@@ -88,51 +93,69 @@ func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth) *PortMapper {
 	}
 }
 
-// MapProxy creates a local HTTP proxy listener for a given upstream proxy.
+// MapProxy creates HTTP + SOCKS5 local proxy listeners for a given upstream proxy.
+// Uses two consecutive ports: even=HTTP, odd=SOCKS5.
 func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	if e, ok := pm.entries[proxyID]; ok {
-		return e.localAddr, nil
+		return fmt.Sprintf("%s:%d", pm.bindAddr, e.httpPort), nil
 	}
 
-	port := pm.findAvailablePort()
-	addr := fmt.Sprintf("%s:%d", pm.bindAddr, port)
+	httpPort, socks5Port := pm.findAvailablePortPair()
 
-	ln, err := net.Listen("tcp", addr)
+	// --- HTTP listener ---
+	httpAddr := fmt.Sprintf("%s:%d", pm.bindAddr, httpPort)
+	httpLn, err := net.Listen("tcp", httpAddr)
 	if err != nil {
-		return "", fmt.Errorf("listen %s: %w", addr, err)
+		return "", fmt.Errorf("listen http %s: %w", httpAddr, err)
 	}
-
 	forwarder := newProxyForwarder(up)
 	var handler http.Handler = forwarder
 	if pm.auth != nil {
 		handler = pm.auth.WrapHandler(forwarder)
 	}
-	srv := &http.Server{Handler: handler}
-
-	entry := &portMapEntry{
-		proxyID:   proxyID,
-		localPort: port,
-		localAddr: addr,
-		upstream:  up,
-		server:    srv,
-		listener:  ln,
-	}
-	pm.entries[proxyID] = entry
-
+	httpSrv := &http.Server{Handler: handler}
 	go func() {
-		if err := srv.Serve(ln); err != nil && err != http.ErrServerClosed {
-			log.Printf("PortMapper: serve error on %s: %v", addr, err)
+		if err := httpSrv.Serve(httpLn); err != nil && err != http.ErrServerClosed {
+			log.Printf("PortMapper: http serve error on %s: %v", httpAddr, err)
 		}
 	}()
 
-	log.Printf("PortMapper: %s -> %s (%s)", addr, up.Address, up.Type)
-	return addr, nil
+	// --- SOCKS5 listener ---
+	socks5Addr := fmt.Sprintf("%s:%d", pm.bindAddr, socks5Port)
+	socks5Ln, err := net.Listen("tcp", socks5Addr)
+	if err != nil {
+		httpSrv.Close()
+		httpLn.Close()
+		return "", fmt.Errorf("listen socks5 %s: %w", socks5Addr, err)
+	}
+	s5 := &socks5Listener{upstream: up, auth: pm.auth}
+	s5ctx, s5cancel := context.WithCancel(pm.ctx)
+	go func() {
+		go s5.Serve(socks5Ln)
+		<-s5ctx.Done()
+		socks5Ln.Close()
+	}()
+
+	entry := &portMapEntry{
+		proxyID:        proxyID,
+		httpPort:       httpPort,
+		socks5Port:     socks5Port,
+		upstream:       up,
+		httpServer:     httpSrv,
+		httpListener:   httpLn,
+		socks5Listener: socks5Ln,
+		socks5Cancel:   s5cancel,
+	}
+	pm.entries[proxyID] = entry
+
+	log.Printf("PortMapper: HTTP %s + SOCKS5 %s -> %s (%s)", httpAddr, socks5Addr, up.Address, up.Type)
+	return httpAddr, nil
 }
 
-// UnmapProxy stops and removes the listener for a given proxy ID.
+// UnmapProxy stops and removes the listeners for a given proxy ID.
 func (pm *PortMapper) UnmapProxy(proxyID int) {
 	pm.mu.Lock()
 	e, ok := pm.entries[proxyID]
@@ -144,26 +167,35 @@ func (pm *PortMapper) UnmapProxy(proxyID int) {
 	if ok {
 		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 		defer cancel()
-		e.server.Shutdown(ctx)
-		log.Printf("PortMapper: unmapped proxy %d (%s)", proxyID, e.localAddr)
+		e.httpServer.Shutdown(ctx)
+		e.socks5Cancel()
+		log.Printf("PortMapper: unmapped proxy %d (http:%d socks5:%d)", proxyID, e.httpPort, e.socks5Port)
 	}
 }
 
 // GetMappings returns all current port mappings sorted by local port.
-// Display addresses replace "0.0.0.0" with the machine's real IP.
+// Each upstream proxy produces two entries: one HTTP, one SOCKS5.
 func (pm *PortMapper) GetMappings() []MappedProxy {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
 	displayAddr := GetPublicAddr(pm.bindAddr)
 
-	result := make([]MappedProxy, 0, len(pm.entries))
+	result := make([]MappedProxy, 0, len(pm.entries)*2)
 	for _, e := range pm.entries {
-		addr := fmt.Sprintf("%s:%d", displayAddr, e.localPort)
 		result = append(result, MappedProxy{
 			ProxyID:   e.proxyID,
-			LocalAddr: addr,
-			LocalPort: e.localPort,
+			LocalAddr: fmt.Sprintf("%s:%d", displayAddr, e.httpPort),
+			LocalPort: e.httpPort,
+			Protocol:  "http",
+			Upstream:  e.upstream.Address,
+			Type:      e.upstream.Type,
+		})
+		result = append(result, MappedProxy{
+			ProxyID:   e.proxyID,
+			LocalAddr: fmt.Sprintf("%s:%d", displayAddr, e.socks5Port),
+			LocalPort: e.socks5Port,
+			Protocol:  "socks5",
 			Upstream:  e.upstream.Address,
 			Type:      e.upstream.Type,
 		})
@@ -182,21 +214,24 @@ func (pm *PortMapper) StopAll() {
 
 	for id, e := range pm.entries {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		e.server.Shutdown(ctx)
+		e.httpServer.Shutdown(ctx)
+		e.socks5Cancel()
 		cancel()
 		delete(pm.entries, id)
 	}
 	log.Println("PortMapper: all stopped")
 }
 
-func (pm *PortMapper) findAvailablePort() int {
+// findAvailablePortPair returns two consecutive available ports.
+func (pm *PortMapper) findAvailablePortPair() (httpPort, socks5Port int) {
 	used := make(map[int]bool)
 	for _, e := range pm.entries {
-		used[e.localPort] = true
+		used[e.httpPort] = true
+		used[e.socks5Port] = true
 	}
-	for p := pm.basePort; ; p++ {
-		if !used[p] {
-			return p
+	for p := pm.basePort; ; p += 2 {
+		if !used[p] && !used[p+1] {
+			return p, p + 1
 		}
 	}
 }

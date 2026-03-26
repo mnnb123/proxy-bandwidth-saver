@@ -27,6 +27,9 @@ export default function ProxiesPage() {
     fetchOutputProxies()
   }, [fetchProxies, fetchOutputProxies])
 
+  const httpOutputs = useMemo(() => outputProxies.filter((o) => o.protocol === 'http'), [outputProxies])
+  const socks5Outputs = useMemo(() => outputProxies.filter((o) => o.protocol === 'socks5'), [outputProxies])
+
   const stats = useMemo(() => [
     { label: 'Total', value: proxies.length },
     { label: 'Residential', value: proxies.filter((p) => p.category === 'residential').length },
@@ -35,11 +38,13 @@ export default function ProxiesPage() {
   ], [proxies, outputProxies.length])
 
   const copyOutputList = useCallback(async () => {
-    const text = outputProxies.map((o) => o.localAddr).join('\n')
-    await navigator.clipboard.writeText(text)
+    const lines: string[] = []
+    httpOutputs.forEach((o) => lines.push(`http://${o.localAddr}`))
+    socks5Outputs.forEach((o) => lines.push(`socks5://${o.localAddr}`))
+    await navigator.clipboard.writeText(lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [outputProxies])
+  }, [httpOutputs, socks5Outputs])
 
   return (
     <div className="p-6 overflow-y-auto h-full space-y-4">
@@ -157,34 +162,44 @@ export default function ProxiesPage() {
               </button>
             )}
           </div>
-          <div className="text-[11px] text-[var(--color-text-muted)] mb-2">
-            HTTP Proxy format: host:port (no auth needed)
-          </div>
           {outputProxies.length === 0 ? (
             <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-8 text-center">
               <p className="text-xs text-[var(--color-text-muted)]">Add proxies to see output ports here</p>
             </div>
           ) : (
-            <div className="bg-[var(--color-bg-base)] border border-[var(--color-success)]/30 rounded-xl overflow-hidden">
-              <div className="max-h-[500px] overflow-y-auto">
-                <div className="p-3 space-y-0.5">
-                  {outputProxies.map((op) => (
-                    <div
-                      key={op.proxyId}
-                      className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-[var(--color-sidebar-hover)] transition-colors group"
-                    >
+            <div className="space-y-3">
+              {/* HTTP Proxies */}
+              <div className="bg-[var(--color-bg-base)] border border-[var(--color-success)]/30 rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
+                  <span className="text-[11px] font-medium text-[var(--color-success)]">HTTP Proxy</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] ml-2">format: host:port</span>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto p-2 space-y-0.5">
+                  {httpOutputs.map((op) => (
+                    <div key={op.localPort} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-[var(--color-sidebar-hover)] transition-colors group">
                       <span className="font-mono text-xs text-[var(--color-success)]">{op.localAddr}</span>
-                      <span className="text-[10px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)] transition-colors">
-                        → {op.upstream} ({op.type})
-                      </span>
+                      <span className="text-[10px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]">→ {op.upstream}</span>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="border-t border-[var(--color-border)] px-3 py-2 bg-[var(--color-bg-surface)]">
-                <span className="text-[11px] text-[var(--color-text-muted)]">
-                  {outputProxies.length} output ports | Base port: 30000
-                </span>
+              {/* SOCKS5 Proxies */}
+              <div className="bg-[var(--color-bg-base)] border border-[var(--color-primary)]/30 rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
+                  <span className="text-[11px] font-medium text-[var(--color-primary)]">SOCKS5 Proxy</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] ml-2">format: host:port</span>
+                </div>
+                <div className="max-h-[220px] overflow-y-auto p-2 space-y-0.5">
+                  {socks5Outputs.map((op) => (
+                    <div key={op.localPort} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-[var(--color-sidebar-hover)] transition-colors group">
+                      <span className="font-mono text-xs text-[var(--color-primary)]">{op.localAddr}</span>
+                      <span className="text-[10px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]">→ {op.upstream}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="text-[11px] text-[var(--color-text-muted)]">
+                {httpOutputs.length} HTTP + {socks5Outputs.length} SOCKS5 = {outputProxies.length} output ports
               </div>
             </div>
           )}

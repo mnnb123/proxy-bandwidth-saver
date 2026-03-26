@@ -95,6 +95,7 @@ func (a *HeadlessApp) GetOutputProxiesJSON() interface{} {
 			ProxyID:   m.ProxyID,
 			LocalAddr: m.LocalAddr,
 			LocalPort: m.LocalPort,
+			Protocol:  m.Protocol,
 			Upstream:  m.Upstream,
 			Type:      m.Type,
 		}

@@ -81,6 +81,13 @@ func (a *ProxyAuth) IsEnabled() bool {
 	return a.authEnabled || a.whitelistEnabled
 }
 
+// AuthEnabled returns true if username/password auth is required.
+func (a *ProxyAuth) AuthEnabled() bool {
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	return a.authEnabled
+}
+
 // CheckIP returns true if the IP is allowed (or whitelist is disabled).
 func (a *ProxyAuth) CheckIP(remoteAddr string) bool {
 	a.mu.RLock()
