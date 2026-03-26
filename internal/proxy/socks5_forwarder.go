@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"sync/atomic"
 	"time"
 )
@@ -14,6 +15,7 @@ type socks5Listener struct {
 	auth     *ProxyAuth
 	proxyID  int
 	meter    MeterCallback
+	classify ClassifyFunc
 }
 
 // Serve accepts connections on the listener and handles each in a goroutine.
@@ -85,22 +87,44 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 	port := int(buf[addrEnd])<<8 | int(buf[addrEnd+1])
 	target := fmt.Sprintf("%s:%d", targetHost, port)
 
-	// 3. Connect to upstream proxy
-	upConn, err := net.DialTimeout("tcp", s.upstream.Address, 10*time.Second)
-	if err != nil {
-		conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+	// Classify the request
+	var route Route
+	if s.classify != nil {
+		req, _ := http.NewRequest("CONNECT", "https://"+target, nil)
+		req.Host = target
+		route = s.classify(req)
+	}
+
+	// Block: reject
+	if route == RouteBlock {
+		conn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // connection not allowed
 		return
 	}
 
-	// 4. Handshake with upstream
-	var hsErr error
-	if s.upstream.Type == "socks5" {
-		hsErr = socks5Handshake(upConn, target, s.upstream.Username, s.upstream.Password)
+	// 3. Connect: direct or via upstream
+	var upConn net.Conn
+	if route == RouteDirect {
+		// Bypass: connect directly to target
+		upConn, err = net.DialTimeout("tcp", target, 10*time.Second)
 	} else {
-		hsErr = httpConnectHandshake(upConn, target, s.upstream.Username, s.upstream.Password)
+		// Normal: connect via upstream proxy
+		upConn, err = net.DialTimeout("tcp", s.upstream.Address, 10*time.Second)
+		if err == nil {
+			var hsErr error
+			if s.upstream.Type == "socks5" {
+				hsErr = socks5Handshake(upConn, target, s.upstream.Username, s.upstream.Password)
+			} else {
+				hsErr = httpConnectHandshake(upConn, target, s.upstream.Username, s.upstream.Password)
+			}
+			if hsErr != nil {
+				upConn.Close()
+				conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+				return
+			}
+		}
 	}
-	if hsErr != nil {
-		upConn.Close()
+
+	if err != nil {
 		conn.Write([]byte{0x05, 0x05, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
 	}

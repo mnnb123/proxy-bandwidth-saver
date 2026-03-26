@@ -85,6 +85,17 @@ func (a *App) ToggleRule(id int, enabled bool) error {
 	return nil
 }
 
+func (a *App) ClearAllRules() error {
+	if a.db == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	_, err := a.db.Writer.Exec("DELETE FROM rules")
+	if err == nil {
+		a.reloadClassifier()
+	}
+	return err
+}
+
 func (a *App) AddBulkRules(patterns []string, action string, priority int) (int, error) {
 	if a.db == nil {
 		return 0, fmt.Errorf("database not initialized")

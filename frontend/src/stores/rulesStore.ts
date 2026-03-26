@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { GetRules, AddRule, AddBulkRules, UpdateRuleById, DeleteRule, ToggleRule, TestRule, ImportRules, ExportRules } from '../lib/api'
+import { GetRules, AddRule, AddBulkRules, ClearAllRules, UpdateRuleById, DeleteRule, ToggleRule, TestRule, ImportRules, ExportRules } from '../lib/api'
 import { useToastStore } from './toastStore'
 
 interface Rule {
@@ -14,6 +14,7 @@ interface RulesState {
   fetchRules: () => Promise<void>
   createRule: (ruleType: string, pattern: string, action: string, priority: number) => Promise<void>
   createBulkRules: (patterns: string[], action: string, priority: number) => Promise<number>
+  clearAllRules: () => Promise<void>
   updateRule: (id: number, ruleType: string, pattern: string, action: string, priority: number, enabled: boolean) => Promise<void>
   deleteRule: (id: number) => Promise<void>
   toggleRule: (id: number, enabled: boolean) => Promise<void>
@@ -62,6 +63,16 @@ export const useRulesStore = create<RulesState>((set) => ({
     } catch (e) {
       toast().addToast('error', `Failed to create rules: ${e}`)
       return 0
+    }
+  },
+
+  clearAllRules: async () => {
+    try {
+      await ClearAllRules()
+      set({ rules: [] })
+      toast().addToast('success', 'All rules cleared')
+    } catch (e) {
+      toast().addToast('error', `Failed to clear rules: ${e}`)
     }
   },
 

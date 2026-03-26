@@ -11,16 +11,21 @@ import (
 	"time"
 )
 
+// ClassifyFunc classifies a domain and returns the route decision.
+type ClassifyFunc func(req *http.Request) Route
+
 // proxyForwarder is an HTTP handler that acts as a forward proxy,
 // routing all traffic through a specific upstream proxy.
 type proxyForwarder struct {
 	upstream  UpstreamInfo
 	proxyID   int
 	meter     MeterCallback
+	classify  ClassifyFunc
 	transport *http.Transport
+	directTransport *http.Transport
 }
 
-func newProxyForwarder(upstream UpstreamInfo, proxyID int, meter MeterCallback) *proxyForwarder {
+func newProxyForwarder(upstream UpstreamInfo, proxyID int, meter MeterCallback, classify ClassifyFunc) *proxyForwarder {
 	proxyURL := &url.URL{
 		Scheme: "http",
 		Host:   upstream.Address,
@@ -32,8 +37,15 @@ func newProxyForwarder(upstream UpstreamInfo, proxyID int, meter MeterCallback) 
 		upstream: upstream,
 		proxyID:  proxyID,
 		meter:    meter,
+		classify: classify,
 		transport: &http.Transport{
 			Proxy:               http.ProxyURL(proxyURL),
+			MaxIdleConns:        50,
+			MaxIdleConnsPerHost: 10,
+			IdleConnTimeout:     90 * time.Second,
+			TLSHandshakeTimeout: 10 * time.Second,
+		},
+		directTransport: &http.Transport{
 			MaxIdleConns:        50,
 			MaxIdleConnsPerHost: 10,
 			IdleConnTimeout:     90 * time.Second,
@@ -50,6 +62,14 @@ func (f *proxyForwarder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// checkRoute classifies and returns the route. Returns "" to proceed normally.
+func (f *proxyForwarder) checkRoute(r *http.Request) Route {
+	if f.classify == nil {
+		return ""
+	}
+	return f.classify(r)
+}
+
 // handleHTTP forwards regular HTTP requests via upstream proxy.
 func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	domain := r.Host
@@ -58,8 +78,23 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		reqBytes = 0
 	}
 
+	route := f.checkRoute(r)
+
+	// Block: return 204 No Content
+	if route == RouteBlock {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
 	r.RequestURI = ""
-	resp, err := f.transport.RoundTrip(r)
+
+	// Bypass/Direct: use direct transport (no upstream proxy)
+	transport := f.transport
+	if route == RouteDirect {
+		transport = f.directTransport
+	}
+
+	resp, err := transport.RoundTrip(r)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
@@ -84,21 +119,40 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 	domain := r.Host
 
-	upConn, err := net.DialTimeout("tcp", f.upstream.Address, 10*time.Second)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+	route := f.checkRoute(r)
+
+	// Block: reject connection
+	if route == RouteBlock {
+		http.Error(w, "blocked", http.StatusForbidden)
 		return
 	}
 
-	var handshakeErr error
-	if f.upstream.Type == "socks5" {
-		handshakeErr = socks5Handshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
+	var upConn net.Conn
+	var err error
+
+	if route == RouteDirect {
+		// Bypass: connect directly to target, no upstream proxy
+		upConn, err = net.DialTimeout("tcp", r.Host, 10*time.Second)
 	} else {
-		handshakeErr = httpConnectHandshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
+		// Normal: connect via upstream proxy
+		upConn, err = net.DialTimeout("tcp", f.upstream.Address, 10*time.Second)
+		if err == nil {
+			var handshakeErr error
+			if f.upstream.Type == "socks5" {
+				handshakeErr = socks5Handshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
+			} else {
+				handshakeErr = httpConnectHandshake(upConn, r.Host, f.upstream.Username, f.upstream.Password)
+			}
+			if handshakeErr != nil {
+				upConn.Close()
+				http.Error(w, handshakeErr.Error(), http.StatusBadGateway)
+				return
+			}
+		}
 	}
-	if handshakeErr != nil {
-		upConn.Close()
-		http.Error(w, handshakeErr.Error(), http.StatusBadGateway)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadGateway)
 		return
 	}
 

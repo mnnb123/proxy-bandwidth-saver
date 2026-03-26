@@ -86,6 +86,10 @@ func (a *App) startup(ctx context.Context) {
 	a.proxyAuth = proxy.NewProxyAuth()
 	a.configureProxyAuth()
 	basePort := a.db.GetSettingInt("base_port", 30000)
+	var classifyFunc proxy.ClassifyFunc
+	if a.classifier != nil {
+		classifyFunc = a.classifier.Classify
+	}
 	a.portMapper = proxy.NewPortMapper("127.0.0.1", basePort, a.proxyAuth, func(domain string, reqBytes, respBytes int64, proxyID int) {
 		if a.meter != nil {
 			a.meter.Record(meter.RequestLog{
@@ -97,7 +101,7 @@ func (a *App) startup(ctx context.Context) {
 				ProxyID:       proxyID,
 			})
 		}
-	})
+	}, classifyFunc)
 
 	a.optCfg = &optimizer.Config{
 		AcceptEncodingEnforce: a.cfg.AcceptEncodingEnforce,

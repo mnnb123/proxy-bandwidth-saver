@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Plus, Download, Upload, FlaskConical, Layers, Shield, Ban, Globe } from 'lucide-react'
+import { Plus, Download, Upload, FlaskConical, Layers, Shield, Ban, Globe, Trash2 } from 'lucide-react'
 import { useRulesStore } from '../stores/rulesStore'
 import { RulesTable } from '../components/rules/RulesTable'
 import { AddRuleForm } from '../components/rules/AddRuleForm'
@@ -7,6 +7,7 @@ import { RuleTester } from '../components/rules/RuleTester'
 import { ImportExportModal } from '../components/rules/ImportExportModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { TableSkeleton } from '../components/ui/Skeleton'
+import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
 type FilterKey = 'all' | 'bypass' | 'block' | 'bypass_vps'
 
@@ -21,16 +22,17 @@ export default function RulesPage() {
   const rules = useRulesStore((s) => s.rules)
   const loading = useRulesStore((s) => s.loading)
   const fetchRules = useRulesStore((s) => s.fetchRules)
+  const clearAllRules = useRulesStore((s) => s.clearAllRules)
   const [filter, setFilter] = useState<FilterKey>('all')
   const [showAdd, setShowAdd] = useState(false)
   const [showTester, setShowTester] = useState(false)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [importExport, setImportExport] = useState<'import' | 'export' | null>(null)
 
   useEffect(() => { fetchRules() }, [fetchRules])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rules
-    // bypass also includes "direct" (legacy)
     if (filter === 'bypass') return rules.filter((r) => r.action === 'bypass' || r.action === 'direct')
     return rules.filter((r) => r.action === filter)
   }, [rules, filter])
@@ -52,6 +54,14 @@ export default function RulesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Domain Rules</h1>
         <div className="flex items-center gap-2">
+          {rules.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 border border-[var(--color-danger)]/30 transition-colors"
+            >
+              <Trash2 size={14} /> Clear All
+            </button>
+          )}
           <button
             onClick={() => setShowTester(!showTester)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] border border-[var(--color-border)] transition-colors"
@@ -137,6 +147,17 @@ export default function RulesPage() {
           onClose={() => setImportExport(null)}
         />
       )}
+
+      {/* Clear All Confirm */}
+      <ConfirmDialog
+        open={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={() => { clearAllRules(); setShowClearConfirm(false) }}
+        title="Clear All Rules"
+        message={`Are you sure you want to delete all ${rules.length} rules? This cannot be undone.`}
+        confirmText="Clear All"
+        destructive
+      />
     </div>
   )
 }

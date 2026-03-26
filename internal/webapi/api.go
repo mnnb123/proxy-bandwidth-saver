@@ -21,6 +21,7 @@ type AppBackend interface {
 	GetRulesJSON() interface{}
 	AddRule(ruleType, pattern, action string, priority int) error
 	AddBulkRules(patterns []string, action string, priority int) (int, error)
+	ClearAllRules() error
 	UpdateRuleById(id int, ruleType, pattern, action string, priority int, enabled bool) error
 	DeleteRule(id int) error
 	ToggleRule(id int, enabled bool) error
@@ -110,6 +111,18 @@ func Router(app AppBackend) http.Handler {
 		default:
 			http.Error(w, "method not allowed", 405)
 		}
+	}))
+
+	mux.HandleFunc("/api/rules/clear", cors(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", 405)
+			return
+		}
+		if err := app.ClearAllRules(); err != nil {
+			writeError(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
 	}))
 
 	mux.HandleFunc("/api/rules/bulk", cors(func(w http.ResponseWriter, r *http.Request) {

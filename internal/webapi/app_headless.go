@@ -80,6 +80,10 @@ func (a *HeadlessApp) Start() error {
 	a.proxyAuth = proxy.NewProxyAuth()
 	a.configureProxyAuth()
 	basePort := a.db.GetSettingInt("base_port", 30000)
+	var classifyFunc proxy.ClassifyFunc
+	if a.classifier != nil {
+		classifyFunc = a.classifier.Classify
+	}
 	a.portMapper = proxy.NewPortMapper("0.0.0.0", basePort, a.proxyAuth, func(domain string, reqBytes, respBytes int64, proxyID int) {
 		if a.meter != nil {
 			a.meter.Record(meter.RequestLog{
@@ -91,7 +95,7 @@ func (a *HeadlessApp) Start() error {
 				ProxyID:       proxyID,
 			})
 		}
-	})
+	}, classifyFunc)
 	a.remapAllProxies()
 
 	a.optCfg = &optimizer.Config{

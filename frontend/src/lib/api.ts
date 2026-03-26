@@ -62,6 +62,9 @@ export const DeleteRule = (id: number) =>
 export const ToggleRule = (id: number, enabled: boolean) =>
   wailsOrAPI<void>('ToggleRule', '/api/rules/toggle', postJSON('/api/rules/toggle', { id, enabled }), id, enabled)
 
+export const ClearAllRules = () =>
+  wailsOrAPI<void>('ClearAllRules', '/api/rules/clear', { method: 'POST' })
+
 export async function TestRule(domain: string, url: string, contentType: string): Promise<string> {
   if (isWails) {
     const { TestRule } = await import('../../wailsjs/go/main/App')

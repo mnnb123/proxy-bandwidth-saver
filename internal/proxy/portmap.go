@@ -50,6 +50,7 @@ type PortMapper struct {
 	bindAddr string
 	auth     *ProxyAuth
 	meter    MeterCallback
+	classify ClassifyFunc
 	ctx      context.Context
 	cancel   context.CancelFunc
 }
@@ -85,7 +86,7 @@ type MappedProxy struct {
 	Type       string `json:"type"`
 }
 
-func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth, meter MeterCallback) *PortMapper {
+func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth, meter MeterCallback, classify ClassifyFunc) *PortMapper {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &PortMapper{
 		entries:  make(map[int]*portMapEntry),
@@ -93,6 +94,7 @@ func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth, meter MeterCa
 		bindAddr: bindAddr,
 		auth:     auth,
 		meter:    meter,
+		classify: classify,
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -116,7 +118,7 @@ func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("listen http %s: %w", httpAddr, err)
 	}
-	forwarder := newProxyForwarder(up, proxyID, pm.meter)
+	forwarder := newProxyForwarder(up, proxyID, pm.meter, pm.classify)
 	var handler http.Handler = forwarder
 	if pm.auth != nil {
 		handler = pm.auth.WrapHandler(forwarder)
@@ -136,7 +138,7 @@ func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 		httpLn.Close()
 		return "", fmt.Errorf("listen socks5 %s: %w", socks5Addr, err)
 	}
-	s5 := &socks5Listener{upstream: up, auth: pm.auth, proxyID: proxyID, meter: pm.meter}
+	s5 := &socks5Listener{upstream: up, auth: pm.auth, proxyID: proxyID, meter: pm.meter, classify: pm.classify}
 	s5ctx, s5cancel := context.WithCancel(pm.ctx)
 	go func() {
 		go s5.Serve(socks5Ln)

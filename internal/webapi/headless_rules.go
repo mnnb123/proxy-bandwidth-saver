@@ -96,6 +96,17 @@ func (a *HeadlessApp) TestRule(domain, urlPath, contentType string) string {
 	return string(route)
 }
 
+func (a *HeadlessApp) ClearAllRules() error {
+	if a.db == nil {
+		return fmt.Errorf("not initialized")
+	}
+	_, err := a.db.Writer.Exec("DELETE FROM rules")
+	if err == nil {
+		a.reloadClassifier()
+	}
+	return err
+}
+
 func (a *HeadlessApp) AddBulkRules(patterns []string, action string, priority int) (int, error) {
 	if a.db == nil {
 		return 0, fmt.Errorf("not initialized")
