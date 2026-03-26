@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -11,6 +12,8 @@ import (
 type socks5Listener struct {
 	upstream UpstreamInfo
 	auth     *ProxyAuth
+	proxyID  int
+	meter    MeterCallback
 }
 
 // Serve accepts connections on the listener and handles each in a goroutine.
@@ -36,20 +39,18 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 
 	needAuth := s.auth != nil && s.auth.AuthEnabled()
 	if needAuth {
-		// Request username/password auth
 		conn.Write([]byte{0x05, 0x02})
 		if err := s.doAuth(conn); err != nil {
 			return
 		}
 	} else {
-		// No auth
 		conn.Write([]byte{0x05, 0x00})
 	}
 
 	// 2. Read CONNECT request
 	n, err = conn.Read(buf)
 	if err != nil || n < 7 || buf[0] != 0x05 || buf[1] != 0x01 {
-		conn.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // command not supported
+		conn.Write([]byte{0x05, 0x07, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 		return
 	}
 
@@ -107,16 +108,27 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 	// 5. Success response
 	conn.Write([]byte{0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
 
-	// 6. Relay
-	go func() { io.Copy(upConn, conn); upConn.Close() }()
-	io.Copy(conn, upConn)
+	// 6. Relay with byte counting
+	var upBytes, downBytes atomic.Int64
+	go func() {
+		n, _ := io.Copy(upConn, conn)
+		upBytes.Store(n)
+		upConn.Close()
+	}()
+	n2, _ := io.Copy(conn, upConn)
+	downBytes.Store(n2)
+
+	// Record to meter
+	if s.meter != nil {
+		s.meter(targetHost, upBytes.Load(), downBytes.Load(), s.proxyID)
+	}
 }
 
 func (s *socks5Listener) doAuth(conn net.Conn) error {
 	buf := make([]byte, 515)
 	n, err := conn.Read(buf)
 	if err != nil || n < 3 || buf[0] != 0x01 {
-		conn.Write([]byte{0x01, 0x01}) // auth failed
+		conn.Write([]byte{0x01, 0x01})
 		return fmt.Errorf("bad auth")
 	}
 
@@ -138,7 +150,6 @@ func (s *socks5Listener) doAuth(conn net.Conn) error {
 		return fmt.Errorf("auth failed")
 	}
 
-	conn.Write([]byte{0x01, 0x00}) // success
+	conn.Write([]byte{0x01, 0x00})
 	return nil
 }
-

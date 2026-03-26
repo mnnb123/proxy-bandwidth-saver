@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,10 +15,12 @@ import (
 // routing all traffic through a specific upstream proxy.
 type proxyForwarder struct {
 	upstream  UpstreamInfo
+	proxyID   int
+	meter     MeterCallback
 	transport *http.Transport
 }
 
-func newProxyForwarder(upstream UpstreamInfo) *proxyForwarder {
+func newProxyForwarder(upstream UpstreamInfo, proxyID int, meter MeterCallback) *proxyForwarder {
 	proxyURL := &url.URL{
 		Scheme: "http",
 		Host:   upstream.Address,
@@ -27,6 +30,8 @@ func newProxyForwarder(upstream UpstreamInfo) *proxyForwarder {
 	}
 	return &proxyForwarder{
 		upstream: upstream,
+		proxyID:  proxyID,
+		meter:    meter,
 		transport: &http.Transport{
 			Proxy:               http.ProxyURL(proxyURL),
 			MaxIdleConns:        50,
@@ -47,6 +52,12 @@ func (f *proxyForwarder) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // handleHTTP forwards regular HTTP requests via upstream proxy.
 func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
+	domain := r.Host
+	reqBytes := r.ContentLength
+	if reqBytes < 0 {
+		reqBytes = 0
+	}
+
 	r.RequestURI = ""
 	resp, err := f.transport.RoundTrip(r)
 	if err != nil {
@@ -61,11 +72,18 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
+
+	respBytes, _ := io.Copy(w, resp.Body)
+
+	if f.meter != nil {
+		f.meter(domain, reqBytes, respBytes, f.proxyID)
+	}
 }
 
 // handleConnect handles HTTPS tunneling (CONNECT method) via upstream proxy.
 func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
+	domain := r.Host
+
 	upConn, err := net.DialTimeout("tcp", f.upstream.Address, 10*time.Second)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadGateway)
@@ -98,8 +116,20 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	clientConn.Write([]byte("HTTP/1.1 200 Connection Established\r\n\r\n"))
 
-	go func() { io.Copy(upConn, clientConn); upConn.Close() }()
-	go func() { io.Copy(clientConn, upConn); clientConn.Close() }()
+	// Use counting relay to track bytes
+	var upBytes, downBytes atomic.Int64
+	go func() {
+		n, _ := io.Copy(upConn, clientConn)
+		upBytes.Store(n)
+		upConn.Close()
+	}()
+	n, _ := io.Copy(clientConn, upConn)
+	downBytes.Store(n)
+	clientConn.Close()
+
+	if f.meter != nil {
+		f.meter(domain, upBytes.Load(), downBytes.Load(), f.proxyID)
+	}
 }
 
 // httpConnectHandshake sends HTTP CONNECT to upstream proxy.

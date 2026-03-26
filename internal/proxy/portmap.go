@@ -38,6 +38,9 @@ func GetPublicAddr(bind string) string {
 	return bind
 }
 
+// MeterCallback is called for each proxied request with domain and bytes transferred.
+type MeterCallback func(domain string, reqBytes, respBytes int64, proxyID int)
+
 // PortMapper creates individual local proxy listeners (HTTP + SOCKS5),
 // each forwarding all traffic through a specific upstream proxy.
 type PortMapper struct {
@@ -46,6 +49,7 @@ type PortMapper struct {
 	basePort int
 	bindAddr string
 	auth     *ProxyAuth
+	meter    MeterCallback
 	ctx      context.Context
 	cancel   context.CancelFunc
 }
@@ -81,13 +85,14 @@ type MappedProxy struct {
 	Type       string `json:"type"`
 }
 
-func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth) *PortMapper {
+func NewPortMapper(bindAddr string, basePort int, auth *ProxyAuth, meter MeterCallback) *PortMapper {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &PortMapper{
 		entries:  make(map[int]*portMapEntry),
 		basePort: basePort,
 		bindAddr: bindAddr,
 		auth:     auth,
+		meter:    meter,
 		ctx:      ctx,
 		cancel:   cancel,
 	}
@@ -111,7 +116,7 @@ func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("listen http %s: %w", httpAddr, err)
 	}
-	forwarder := newProxyForwarder(up)
+	forwarder := newProxyForwarder(up, proxyID, pm.meter)
 	var handler http.Handler = forwarder
 	if pm.auth != nil {
 		handler = pm.auth.WrapHandler(forwarder)
@@ -131,7 +136,7 @@ func (pm *PortMapper) MapProxy(proxyID int, up UpstreamInfo) (string, error) {
 		httpLn.Close()
 		return "", fmt.Errorf("listen socks5 %s: %w", socks5Addr, err)
 	}
-	s5 := &socks5Listener{upstream: up, auth: pm.auth}
+	s5 := &socks5Listener{upstream: up, auth: pm.auth, proxyID: proxyID, meter: pm.meter}
 	s5ctx, s5cancel := context.WithCancel(pm.ctx)
 	go func() {
 		go s5.Serve(socks5Ln)
