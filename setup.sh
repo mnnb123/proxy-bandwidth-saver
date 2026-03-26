@@ -147,7 +147,9 @@ build_app() {
     cd "$BUILD_DIR"
 
     info "Building frontend..."
-    cd frontend && npm ci --silent 2>&1 | tail -3 && cd ..
+    cd frontend && npm ci --silent 2>&1 | tail -3
+    npx vite build
+    cd ..
 
     info "Embedding frontend..."
     rm -rf cmd/server/frontend
