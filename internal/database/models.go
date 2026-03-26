@@ -25,12 +25,12 @@ type Rule struct {
 	ID        int    `json:"id"`
 	RuleType  string `json:"ruleType"`  // domain | content_type | url_pattern
 	Pattern   string `json:"pattern"`
-	Action    string `json:"action"`    // direct | datacenter | residential | block
+	Action    string `json:"action"`    // direct | datacenter | residential | block | bypass | bypass_vps
 	Priority  int    `json:"priority"`
 	Enabled   bool   `json:"enabled"`
 	HitCount  int64  `json:"hitCount"`
 	BytesSaved int64 `json:"bytesSaved"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type BandwidthLog struct {

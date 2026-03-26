@@ -19,6 +19,9 @@ type CompiledRules struct {
 	// Wildcard suffix rules (sorted longest first for best match)
 	WildcardDomains []WildcardRule
 
+	// Keyword rules (domain contains keyword)
+	KeywordDomains []KeywordRule
+
 	// URL pattern rules (pre-compiled regex)
 	URLPatterns []URLPatternRule
 
@@ -31,6 +34,12 @@ type CompiledRules struct {
 
 type WildcardRule struct {
 	Suffix   string
+	Route    proxy.Route
+	Priority int
+}
+
+type KeywordRule struct {
+	Keyword  string
 	Route    proxy.Route
 	Priority int
 }
@@ -67,6 +76,13 @@ func (c *Classifier) Classify(req *http.Request) proxy.Route {
 	for _, wr := range rules.WildcardDomains {
 		if strings.HasSuffix(domain, wr.Suffix) || domain == strings.TrimPrefix(wr.Suffix, ".") {
 			return wr.Route
+		}
+	}
+
+	// 2.5 Keyword domain match (contains)
+	for _, kr := range rules.KeywordDomains {
+		if strings.Contains(domain, kr.Keyword) {
+			return kr.Route
 		}
 	}
 

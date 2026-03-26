@@ -73,13 +73,13 @@ export function AddRuleForm({ onClose }: Props) {
             <textarea
               value={domains}
               onChange={(e) => setDomains(e.target.value)}
-              placeholder={"example.com\n*.google.com\nfacebook.com\nyoutube.com"}
+              placeholder={"example.com\n*.google.com\nfacebook\nyoutube.com\n*.tiktok.com"}
               rows={10}
               className="w-full bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded-lg px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--color-input-focus)] font-mono resize-none leading-relaxed"
               autoFocus
             />
             <p className="text-[10px] text-[var(--color-text-muted)] mt-1">
-              Mỗi dòng 1 domain. Hỗ trợ wildcard: *.example.com
+              Mỗi dòng 1 domain. Định dạng: <b>example.com</b> (domain + subdomain) | <b>*.google.com</b> (wildcard) | <b>facebook</b> (từ khóa, match tất cả domain chứa từ này)
             </p>
           </div>
 

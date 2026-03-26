@@ -38,6 +38,7 @@ func CompileRules(rules []Rule) *CompiledRules {
 	compiled := &CompiledRules{
 		ExactDomains:     make(map[string]proxy.Route),
 		WildcardDomains:  make([]WildcardRule, 0),
+		KeywordDomains:   make([]KeywordRule, 0),
 		URLPatterns:      make([]URLPatternRule, 0),
 		ContentTypes:     make(map[string]proxy.Route),
 		StaticExtensions: defaultStaticExtensions(),
@@ -86,6 +87,9 @@ func compileDomainRule(c *CompiledRules, pattern string, route proxy.Route, prio
 			Route:    route,
 			Priority: priority,
 		})
+		// Also match the base domain itself (e.g. *.google.com also matches google.com)
+		baseDomain := strings.TrimPrefix(suffix, ".")
+		c.ExactDomains[baseDomain] = route
 	} else if strings.Contains(pattern, "*") {
 		// Complex wildcard -> compile as regex
 		regexPattern := "^" + strings.ReplaceAll(regexp.QuoteMeta(pattern), `\*`, `.*`) + "$"
@@ -96,9 +100,23 @@ func compileDomainRule(c *CompiledRules, pattern string, route proxy.Route, prio
 				Priority: priority,
 			})
 		}
+	} else if !strings.Contains(pattern, ".") {
+		// Keyword match: no dots = match any domain containing this keyword
+		// e.g. "facebook" matches "facebook.com", "m.facebook.com", "api.facebook.net"
+		c.KeywordDomains = append(c.KeywordDomains, KeywordRule{
+			Keyword:  pattern,
+			Route:    route,
+			Priority: priority,
+		})
 	} else {
-		// Exact domain match
+		// Exact domain match + also match all subdomains
 		c.ExactDomains[pattern] = route
+		// "example.com" also matches "*.example.com"
+		c.WildcardDomains = append(c.WildcardDomains, WildcardRule{
+			Suffix:   "." + pattern,
+			Route:    route,
+			Priority: priority,
+		})
 	}
 }
 

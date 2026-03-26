@@ -29,10 +29,12 @@ func (a *HeadlessApp) getRules() []database.Rule {
 	for rows.Next() {
 		var r database.Rule
 		var enabled int
-		if err := rows.Scan(&r.ID, &r.RuleType, &r.Pattern, &r.Action, &r.Priority, &enabled, &r.HitCount, &r.BytesSaved, &r.CreatedAt); err != nil {
+		var createdAt string
+		if err := rows.Scan(&r.ID, &r.RuleType, &r.Pattern, &r.Action, &r.Priority, &enabled, &r.HitCount, &r.BytesSaved, &createdAt); err != nil {
 			continue
 		}
 		r.Enabled = enabled == 1
+		r.CreatedAt = createdAt
 		rules = append(rules, r)
 	}
 	return rules
