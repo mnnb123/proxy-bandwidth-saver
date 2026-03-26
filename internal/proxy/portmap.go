@@ -38,8 +38,8 @@ func GetPublicAddr(bind string) string {
 	return bind
 }
 
-// MeterCallback is called for each proxied request with domain and bytes transferred.
-type MeterCallback func(domain string, reqBytes, respBytes int64, proxyID int)
+// MeterCallback is called for each proxied request with domain, bytes, and route info.
+type MeterCallback func(domain string, reqBytes, respBytes int64, proxyID int, route string)
 
 // PortMapper creates individual local proxy listeners (HTTP + SOCKS5),
 // each forwarding all traffic through a specific upstream proxy.

@@ -7,6 +7,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 import { TypeBadge } from '../components/ui/Badge'
 import { AddProxyModal } from '../components/proxies/AddProxyModal'
 import { BulkImportModal } from '../components/proxies/BulkImportModal'
+import { copyToClipboard } from '../lib/format'
 
 export default function ProxiesPage() {
   const proxies = useProxiesStore((s) => s.proxies)
@@ -37,11 +38,11 @@ export default function ProxiesPage() {
     { label: 'Output Ports', value: outputProxies.length },
   ], [proxies, outputProxies.length])
 
-  const copyOutputList = useCallback(async () => {
+  const copyOutputList = useCallback(() => {
     const lines: string[] = []
     httpOutputs.forEach((o) => lines.push(`http://${o.localAddr}`))
     socks5Outputs.forEach((o) => lines.push(`socks5://${o.localAddr}`))
-    await navigator.clipboard.writeText(lines.join('\n'))
+    copyToClipboard(lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }, [httpOutputs, socks5Outputs])

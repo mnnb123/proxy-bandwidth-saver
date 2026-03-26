@@ -84,12 +84,12 @@ func (a *HeadlessApp) Start() error {
 	if a.classifier != nil {
 		classifyFunc = a.classifier.Classify
 	}
-	a.portMapper = proxy.NewPortMapper("0.0.0.0", basePort, a.proxyAuth, func(domain string, reqBytes, respBytes int64, proxyID int) {
+	a.portMapper = proxy.NewPortMapper("0.0.0.0", basePort, a.proxyAuth, func(domain string, reqBytes, respBytes int64, proxyID int, route string) {
 		if a.meter != nil {
 			a.meter.Record(meter.RequestLog{
 				Timestamp:     time.Now(),
 				Domain:        domain,
-				Route:         "residential",
+				Route:         route,
 				RequestBytes:  reqBytes,
 				ResponseBytes: respBytes,
 				ProxyID:       proxyID,

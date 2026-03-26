@@ -59,9 +59,17 @@ type AppBackend interface {
 	GeneratePAC(proxyAddr string) string
 }
 
+// AppVersion is the application version string, set at build time or here.
+var AppVersion = "1.0.1"
+
 // Router creates the HTTP API handler.
 func Router(app AppBackend) http.Handler {
 	mux := http.NewServeMux()
+
+	// Version
+	mux.HandleFunc("/api/version", cors(func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, map[string]string{"version": AppVersion})
+	}))
 
 	// Proxy control
 	mux.HandleFunc("/api/proxy/start", cors(func(w http.ResponseWriter, r *http.Request) {

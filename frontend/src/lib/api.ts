@@ -164,6 +164,15 @@ export const GetSettings = () =>
 export const UpdateSetting = (key: string, value: string) =>
   wailsOrAPI<void>('UpdateSetting', '/api/settings', putJSON('/api/settings', { key, value }), key, value)
 
+export async function GetVersion(): Promise<string> {
+  try {
+    const res = await fetchAPI<{ version: string }>('/api/version')
+    return res.version
+  } catch {
+    return 'unknown'
+  }
+}
+
 export async function GetCACertPath(): Promise<string> {
   if (isWails) {
     const { GetCACertPath } = await import('../../wailsjs/go/main/App')

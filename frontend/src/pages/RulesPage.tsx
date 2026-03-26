@@ -8,6 +8,7 @@ import { ImportExportModal } from '../components/rules/ImportExportModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { TableSkeleton } from '../components/ui/Skeleton'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
+import { copyToClipboard } from '../lib/format'
 
 type FilterKey = 'all' | 'bypass' | 'block' | 'bypass_vps'
 
@@ -139,7 +140,7 @@ export default function RulesPage() {
               <code className="text-[11px] bg-[var(--color-bg-elevated)] px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-primary)] font-mono select-all">{pacURL}</code>
               <button
                 onClick={() => {
-                  navigator.clipboard.writeText(pacURL)
+                  copyToClipboard(pacURL)
                   setCopiedPAC(true)
                   setTimeout(() => setCopiedPAC(false), 2000)
                 }}

@@ -150,7 +150,11 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 
 	// Record to meter
 	if s.meter != nil {
-		s.meter(targetHost, upBytes.Load(), downBytes.Load(), s.proxyID)
+		routeStr := string(route)
+		if routeStr == "" {
+			routeStr = "residential"
+		}
+		s.meter(targetHost, upBytes.Load(), downBytes.Load(), s.proxyID, routeStr)
 	}
 }
 

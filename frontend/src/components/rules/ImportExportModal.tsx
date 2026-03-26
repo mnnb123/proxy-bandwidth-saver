@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { Modal } from '../ui/Modal'
 import { useRulesStore } from '../../stores/rulesStore'
+import { copyToClipboard } from '../../lib/format'
 
 interface Props {
   mode: 'import' | 'export'
@@ -25,8 +26,8 @@ export function ImportExportModal({ mode, onClose }: Props) {
     onClose()
   }
 
-  const handleCopy = async () => {
-    await navigator.clipboard.writeText(text)
+  const handleCopy = () => {
+    copyToClipboard(text)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }

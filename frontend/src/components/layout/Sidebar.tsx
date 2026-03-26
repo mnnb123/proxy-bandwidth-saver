@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { LayoutDashboard, Shield, Globe, Settings, Play, Square, Menu, X, BarChart3 } from 'lucide-react'
 import { useProxyStore } from '../../stores/proxyStore'
+import { GetVersion } from '../../lib/api'
 
 type Page = 'dashboard' | 'rules' | 'proxies' | 'domains' | 'settings'
 
@@ -26,6 +27,11 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
 
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < COLLAPSE_WIDTH)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [version, setVersion] = useState('')
+
+  useEffect(() => {
+    GetVersion().then(setVersion)
+  }, [])
 
   useEffect(() => {
     const onResize = () => {
@@ -63,7 +69,7 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
               <X size={16} />
             </button>
           </div>
-          <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} />
+          <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} version={version} />
         </div>
       </>
     )
@@ -121,13 +127,13 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   // Full sidebar
   return (
     <div className="w-52 bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] flex flex-col h-full">
-      <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} />
+      <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} version={version} />
     </div>
   )
 }
 
-function SidebarContent({ activePage, onNavigate, running, startProxy, stopProxy }: {
-  activePage: Page; onNavigate: (page: Page) => void; running: boolean; startProxy: () => void; stopProxy: () => void
+function SidebarContent({ activePage, onNavigate, running, startProxy, stopProxy, version }: {
+  activePage: Page; onNavigate: (page: Page) => void; running: boolean; startProxy: () => void; stopProxy: () => void; version: string
 }) {
   return (
     <>
@@ -170,6 +176,9 @@ function SidebarContent({ activePage, onNavigate, running, startProxy, stopProxy
           {running ? <Square size={14} /> : <Play size={14} />}
           {running ? 'Stop Proxy' : 'Start Proxy'}
         </button>
+        {version && (
+          <p className="text-[10px] text-[var(--color-text-muted)] text-center mt-2">v{version}</p>
+        )}
       </div>
     </>
   )

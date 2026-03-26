@@ -118,7 +118,11 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	respBytes, _ := io.Copy(w, resp.Body)
 
 	if f.meter != nil {
-		f.meter(domain, reqBytes, respBytes, f.proxyID)
+		routeStr := string(route)
+		if routeStr == "" {
+			routeStr = "residential"
+		}
+		f.meter(domain, reqBytes, respBytes, f.proxyID, routeStr)
 	}
 }
 
@@ -195,7 +199,11 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 	clientConn.Close()
 
 	if f.meter != nil {
-		f.meter(domain, upBytes.Load(), downBytes.Load(), f.proxyID)
+		routeStr := string(route)
+		if routeStr == "" {
+			routeStr = "residential"
+		}
+		f.meter(domain, upBytes.Load(), downBytes.Load(), f.proxyID, routeStr)
 	}
 }
 

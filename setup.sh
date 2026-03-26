@@ -6,6 +6,7 @@
 set -euo pipefail
 
 APP_NAME="proxy-bandwidth-saver"
+APP_VERSION="1.0.1"
 REPO_URL="https://github.com/mnnb123/proxy-bandwidth-saver.git"
 INSTALL_DIR="/usr/local/bin"
 DATA_DIR="/var/lib/${APP_NAME}"
@@ -44,6 +45,7 @@ esac
 echo ""
 echo -e "${BOLD}========================================${NC}"
 echo -e "${BOLD}  Proxy Bandwidth Saver — Installer${NC}"
+echo -e "${BOLD}  Version: ${APP_VERSION}${NC}"
 echo -e "${BOLD}========================================${NC}"
 echo -e "  Arch:   ${ARCH} (${GOARCH})"
 echo -e "  OS:     $(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || uname -s)"
@@ -155,10 +157,10 @@ build_app() {
     rm -rf cmd/server/frontend
     cp -r frontend/dist cmd/server/frontend
 
-    info "Building Go binary (linux/${GOARCH})..."
+    info "Building Go binary (linux/${GOARCH}) v${APP_VERSION}..."
     export PATH="/usr/local/go/bin:/root/go/bin:$PATH"
     CGO_ENABLED=0 GOOS=linux GOARCH="$GOARCH" go build \
-        -ldflags "-s -w" \
+        -ldflags "-s -w -X proxy-bandwidth-saver/internal/webapi.AppVersion=${APP_VERSION}" \
         -o "${APP_NAME}" \
         ./cmd/server
 
@@ -218,6 +220,7 @@ start_app() {
         echo ""
         echo -e "${GREEN}${BOLD}========================================${NC}"
         echo -e "${GREEN}${BOLD}  Cai dat thanh cong!${NC}"
+        echo -e "${GREEN}${BOLD}  Version: ${APP_VERSION}${NC}"
         echo -e "${GREEN}${BOLD}========================================${NC}"
         echo ""
         echo -e "  ${BOLD}Web Panel:${NC}    http://${VPS_IP}:8080"

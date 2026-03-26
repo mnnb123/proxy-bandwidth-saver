@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown } from 'lucide-react'
 import { GetDomainStats, ClearDomainStats, GetOutputProxies, GetSettings, UpdateSetting } from '../lib/api'
-import { formatBytes } from '../lib/format'
+import { formatBytes, copyToClipboard } from '../lib/format'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
 
@@ -141,7 +141,7 @@ export default function DomainsPage() {
   }
 
   const copyDomain = (domain: string) => {
-    navigator.clipboard.writeText(domain)
+    copyToClipboard(domain)
     setCopiedDomain(domain)
     setTimeout(() => setCopiedDomain(''), 1500)
   }
