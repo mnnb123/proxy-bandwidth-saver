@@ -90,11 +90,11 @@ install_node() {
     if command -v node &>/dev/null; then
         NODE_VER=$(node -v | sed 's/v//')
         NODE_M=$(echo "$NODE_VER" | cut -d. -f1)
-        if [[ "$NODE_M" -ge 18 ]]; then
+        if [[ "$NODE_M" -ge 20 ]]; then
             info "Node.js v${NODE_VER} da co san"
             return
         fi
-        warn "Node.js v${NODE_VER} qua cu, can >= 18. Cai phien ban moi..."
+        warn "Node.js v${NODE_VER} qua cu (Vite 8 can >= 20.19). Nang cap..."
     fi
 
     if command -v apt-get &>/dev/null; then
