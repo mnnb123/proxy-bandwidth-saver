@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"proxy-bandwidth-saver/internal/classifier"
 	"proxy-bandwidth-saver/internal/database"
@@ -80,6 +81,26 @@ func (a *App) ToggleRule(id int, enabled bool) error {
 	}
 	a.reloadClassifier()
 	return nil
+}
+
+func (a *App) AddBulkRules(patterns []string, action string, priority int) (int, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("database not initialized")
+	}
+	count := 0
+	for _, p := range patterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, err := classifier.CreateRule(a.db.Writer, "domain", p, action, priority); err == nil {
+			count++
+		}
+	}
+	if count > 0 {
+		a.reloadClassifier()
+	}
+	return count, nil
 }
 
 func (a *App) TestRule(domain, urlPath, contentType string) string {

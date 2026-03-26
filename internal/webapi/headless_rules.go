@@ -3,6 +3,7 @@ package webapi
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"proxy-bandwidth-saver/internal/classifier"
 	"proxy-bandwidth-saver/internal/database"
@@ -91,6 +92,26 @@ func (a *HeadlessApp) TestRule(domain, urlPath, contentType string) string {
 	}
 	route := a.classifier.Classify(req)
 	return string(route)
+}
+
+func (a *HeadlessApp) AddBulkRules(patterns []string, action string, priority int) (int, error) {
+	if a.db == nil {
+		return 0, fmt.Errorf("not initialized")
+	}
+	count := 0
+	for _, p := range patterns {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		if _, err := classifier.CreateRule(a.db.Writer, "domain", p, action, priority); err == nil {
+			count++
+		}
+	}
+	if count > 0 {
+		a.reloadClassifier()
+	}
+	return count, nil
 }
 
 func (a *HeadlessApp) ImportRules(jsonStr string) int {

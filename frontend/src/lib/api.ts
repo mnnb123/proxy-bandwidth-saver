@@ -71,6 +71,15 @@ export async function TestRule(domain: string, url: string, contentType: string)
   return res.result
 }
 
+export async function AddBulkRules(patterns: string[], action: string, priority: number): Promise<number> {
+  if (isWails) {
+    const { AddBulkRules } = await import('../../wailsjs/go/main/App')
+    return AddBulkRules(patterns, action, priority)
+  }
+  const res = await fetchAPI<{ count: number }>('/api/rules/bulk', postJSON('/api/rules/bulk', { patterns, action, priority }))
+  return res.count
+}
+
 export async function ImportRules(data: string): Promise<number> {
   if (isWails) {
     const { ImportRules } = await import('../../wailsjs/go/main/App')

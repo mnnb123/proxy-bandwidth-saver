@@ -20,7 +20,7 @@ type Rule struct {
 
 func parseRoute(action string) proxy.Route {
 	switch strings.ToLower(action) {
-	case "direct":
+	case "direct", "bypass", "bypass_vps":
 		return proxy.RouteDirect
 	case "datacenter":
 		return proxy.RouteDatacenter

@@ -15,7 +15,14 @@ interface Props {
   rules: Rule[]
 }
 
-const ACTIONS = ['direct', 'datacenter', 'residential']
+const ACTIONS = [
+  { value: 'bypass', label: 'Bypass' },
+  { value: 'block', label: 'Block' },
+  { value: 'bypass_vps', label: 'Bypass VPS' },
+  { value: 'direct', label: 'Direct' },
+  { value: 'datacenter', label: 'Datacenter' },
+  { value: 'residential', label: 'Residential' },
+]
 
 export function RulesTable({ rules }: Props) {
   const { updateRule, deleteRule, toggleRule } = useRulesStore()
@@ -79,7 +86,7 @@ export function RulesTable({ rules }: Props) {
                       onChange={(e) => setEditAction(e.target.value)}
                       className="bg-[var(--color-input-bg)] border border-[var(--color-input-border)] rounded px-2 py-1 text-xs text-[var(--color-text-primary)] outline-none"
                     >
-                      {ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                      {ACTIONS.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                     </select>
                   ) : (
                     <RouteBadge route={rule.action} />

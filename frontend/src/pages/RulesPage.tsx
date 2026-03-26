@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Plus, Download, Upload, FlaskConical, Layers } from 'lucide-react'
+import { Plus, Download, Upload, FlaskConical, Layers, Shield, Ban, Globe } from 'lucide-react'
 import { useRulesStore } from '../stores/rulesStore'
 import { RulesTable } from '../components/rules/RulesTable'
 import { AddRuleForm } from '../components/rules/AddRuleForm'
@@ -8,31 +8,39 @@ import { ImportExportModal } from '../components/rules/ImportExportModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { TableSkeleton } from '../components/ui/Skeleton'
 
-const TABS = [
-  { key: 'domain', label: 'Domain Rules' },
-  { key: 'content_type', label: 'Content-Type' },
-  { key: 'url_pattern', label: 'URL Pattern' },
-] as const
+type FilterKey = 'all' | 'bypass' | 'block' | 'bypass_vps'
 
-type TabKey = typeof TABS[number]['key']
+const FILTERS: { key: FilterKey; label: string; icon: typeof Globe }[] = [
+  { key: 'all', label: 'All', icon: Layers },
+  { key: 'bypass', label: 'Bypass', icon: Globe },
+  { key: 'block', label: 'Block', icon: Ban },
+  { key: 'bypass_vps', label: 'Bypass VPS', icon: Shield },
+]
 
 export default function RulesPage() {
   const rules = useRulesStore((s) => s.rules)
   const loading = useRulesStore((s) => s.loading)
   const fetchRules = useRulesStore((s) => s.fetchRules)
-  const [tab, setTab] = useState<TabKey>('domain')
+  const [filter, setFilter] = useState<FilterKey>('all')
   const [showAdd, setShowAdd] = useState(false)
   const [showTester, setShowTester] = useState(false)
   const [importExport, setImportExport] = useState<'import' | 'export' | null>(null)
 
   useEffect(() => { fetchRules() }, [fetchRules])
 
-  const filtered = useMemo(() => rules.filter((r) => r.ruleType === tab), [rules, tab])
-  const tabCounts = useMemo(() => {
-    const counts: Record<string, number> = {}
-    for (const r of rules) counts[r.ruleType] = (counts[r.ruleType] || 0) + 1
-    return counts
-  }, [rules])
+  const filtered = useMemo(() => {
+    if (filter === 'all') return rules
+    // bypass also includes "direct" (legacy)
+    if (filter === 'bypass') return rules.filter((r) => r.action === 'bypass' || r.action === 'direct')
+    return rules.filter((r) => r.action === filter)
+  }, [rules, filter])
+
+  const counts = useMemo(() => ({
+    all: rules.length,
+    bypass: rules.filter((r) => r.action === 'bypass' || r.action === 'direct').length,
+    block: rules.filter((r) => r.action === 'block').length,
+    bypass_vps: rules.filter((r) => r.action === 'bypass_vps').length,
+  }), [rules])
 
   const handleAdded = useCallback(() => {
     setShowAdd(false)
@@ -42,7 +50,7 @@ export default function RulesPage() {
     <div className="p-6 overflow-y-auto h-full space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Traffic Rules</h1>
+        <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Domain Rules</h1>
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowTester(!showTester)}
@@ -63,10 +71,10 @@ export default function RulesPage() {
             <Download size={14} /> Export
           </button>
           <button
-            onClick={() => setShowAdd(!showAdd)}
+            onClick={() => setShowAdd(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] transition-colors"
           >
-            <Plus size={14} /> Add Rule
+            <Plus size={14} /> Add Rules
           </button>
         </div>
       </div>
@@ -74,25 +82,25 @@ export default function RulesPage() {
       {/* Rule Tester */}
       {showTester && <RuleTester />}
 
-      {/* Add Rule Form */}
-      {showAdd && <AddRuleForm defaultType={tab} onDone={handleAdded} />}
-
-      {/* Tabs */}
-      <div className="flex border-b border-[var(--color-border)]">
-        {TABS.map((t) => {
-          const count = tabCounts[t.key] || 0
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-3">
+        {FILTERS.map((f) => {
+          const Icon = f.icon
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
-              className={`px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
-                tab === t.key
-                  ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                  : 'border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]'
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              className={`bg-[var(--color-bg-surface)] border rounded-lg px-4 py-3 text-left transition-all ${
+                filter === f.key
+                  ? 'border-[var(--color-primary)] ring-1 ring-[var(--color-primary)]/30'
+                  : 'border-[var(--color-border)] hover:bg-[var(--color-sidebar-hover)]'
               }`}
             >
-              {t.label}
-              <span className="ml-2 px-1.5 py-0.5 rounded-full bg-[var(--color-bg-elevated)] text-[10px]">{count}</span>
+              <div className="flex items-center gap-1.5">
+                <Icon size={12} className="text-[var(--color-text-muted)]" />
+                <span className="text-xs text-[var(--color-text-muted)]">{f.label}</span>
+              </div>
+              <div className="text-xl font-bold text-[var(--color-text-primary)] tabular-nums mt-1">{counts[f.key]}</div>
             </button>
           )
         })}
@@ -104,20 +112,23 @@ export default function RulesPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Layers}
-          title="No rules in this category"
-          description="Add a rule to start classifying traffic"
+          title="No rules"
+          description="Add domain rules to control traffic routing"
           action={
             <button
               onClick={() => setShowAdd(true)}
               className="px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-hover)] transition-colors"
             >
-              Add Rule
+              Add Rules
             </button>
           }
         />
       ) : (
         <RulesTable rules={filtered} />
       )}
+
+      {/* Add Rules Modal */}
+      {showAdd && <AddRuleForm onClose={handleAdded} />}
 
       {/* Import/Export Modal */}
       {importExport && (
