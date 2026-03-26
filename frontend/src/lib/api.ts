@@ -142,8 +142,11 @@ export const GetBudgetStatus = () =>
 
 // === Domain Stats ===
 
-export const GetDomainStats = (period: string = '24h') =>
-  fetchAPI<any[]>(`/api/stats/domains?period=${period}`)
+export const GetDomainStats = (period: string = '24h', proxyId: number = 0) =>
+  fetchAPI<any[]>(`/api/stats/domains?period=${period}${proxyId > 0 ? `&proxyId=${proxyId}` : ''}`)
+
+export const ClearDomainStats = () =>
+  fetchAPI<void>('/api/stats/domains/clear', { method: 'POST' })
 
 // === Cache ===
 

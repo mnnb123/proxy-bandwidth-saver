@@ -111,6 +111,7 @@ func (a *HeadlessApp) Start() error {
 	}
 
 	go a.emitRealtimeStats()
+	go a.autoClearLoop()
 
 	log.Println("Headless app started")
 	return nil
@@ -330,6 +331,26 @@ func (a *HeadlessApp) GetWebCredentials() (string, string) {
 	user, _ := a.db.GetSetting("web_username")
 	pass, _ := a.db.GetSetting("web_password")
 	return user, pass
+}
+
+// autoClearLoop periodically clears old domain stats based on the setting.
+func (a *HeadlessApp) autoClearLoop() {
+	ticker := time.NewTicker(time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-a.stopCh:
+			return
+		case <-ticker.C:
+			if a.db == nil {
+				continue
+			}
+			minutes := a.db.GetSettingInt("domain_report_clear_minutes", 0)
+			if minutes > 0 {
+				a.AutoClearDomainStats(minutes)
+			}
+		}
+	}
 }
 
 // JSON helpers

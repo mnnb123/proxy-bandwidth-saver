@@ -41,6 +41,8 @@ type AppBackend interface {
 	GetCostSummaryJSON() interface{}
 	GetBudgetStatusJSON() interface{}
 	GetDomainStatsJSON(period string) interface{}
+	GetDomainStatsByPortJSON(period string, proxyID int) interface{}
+	ClearDomainStats() error
 
 	// Cache
 	GetCacheStatsJSON() interface{}
@@ -330,7 +332,28 @@ func Router(app AppBackend) http.Handler {
 		if period == "" {
 			period = "24h"
 		}
-		writeJSON(w, app.GetDomainStatsJSON(period))
+		proxyIDStr := r.URL.Query().Get("proxyId")
+		proxyID := 0
+		if proxyIDStr != "" {
+			proxyID, _ = strconv.Atoi(proxyIDStr)
+		}
+		if proxyID > 0 {
+			writeJSON(w, app.GetDomainStatsByPortJSON(period, proxyID))
+		} else {
+			writeJSON(w, app.GetDomainStatsJSON(period))
+		}
+	}))
+
+	mux.HandleFunc("/api/stats/domains/clear", cors(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", 405)
+			return
+		}
+		if err := app.ClearDomainStats(); err != nil {
+			writeError(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
 	}))
 
 	// Cache
