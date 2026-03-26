@@ -38,6 +38,7 @@ type AppBackend interface {
 	GetRealtimeStatsJSON() interface{}
 	GetCostSummaryJSON() interface{}
 	GetBudgetStatusJSON() interface{}
+	GetDomainStatsJSON(period string) interface{}
 
 	// Cache
 	GetCacheStatsJSON() interface{}
@@ -285,6 +286,14 @@ func Router(app AppBackend) http.Handler {
 		writeJSON(w, app.GetBudgetStatusJSON())
 	}))
 
+	mux.HandleFunc("/api/stats/domains", cors(func(w http.ResponseWriter, r *http.Request) {
+		period := r.URL.Query().Get("period")
+		if period == "" {
+			period = "24h"
+		}
+		writeJSON(w, app.GetDomainStatsJSON(period))
+	}))
+
 	// Cache
 	mux.HandleFunc("/api/cache/stats", cors(func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, app.GetCacheStatsJSON())
@@ -338,7 +347,7 @@ func cors(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(204)
 			return

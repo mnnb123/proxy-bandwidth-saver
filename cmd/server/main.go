@@ -46,6 +46,9 @@ func main() {
 	// API router
 	apiMux := webapi.Router(app)
 
+	// Web panel auth middleware
+	webAuth := webapi.NewWebAuth(app.GetWebCredentials)
+
 	// Main HTTP server mux
 	mainMux := http.NewServeMux()
 
@@ -83,7 +86,7 @@ func main() {
 
 	server := &http.Server{
 		Addr:    addr,
-		Handler: mainMux,
+		Handler: webAuth.Wrap(mainMux),
 	}
 
 	// Graceful shutdown

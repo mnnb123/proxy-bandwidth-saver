@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Shield, Globe, Settings, Play, Square, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Shield, Globe, Settings, Play, Square, Menu, X, BarChart3 } from 'lucide-react'
 import { useProxyStore } from '../../stores/proxyStore'
 
-type Page = 'dashboard' | 'rules' | 'proxies' | 'settings'
+type Page = 'dashboard' | 'rules' | 'proxies' | 'domains' | 'settings'
 
 interface SidebarProps {
   activePage: Page
@@ -13,6 +13,7 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'rules', label: 'Rules', icon: Shield },
   { id: 'proxies', label: 'Proxies', icon: Globe },
+  { id: 'domains', label: 'Domains', icon: BarChart3 },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

@@ -11,6 +11,33 @@ import (
 	"time"
 )
 
+// GetPublicAddr returns the bind address for display purposes.
+// If bind is "0.0.0.0", it resolves to the machine's first non-loopback IP.
+func GetPublicAddr(bind string) string {
+	if bind != "0.0.0.0" && bind != "" {
+		return bind
+	}
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return bind
+	}
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 || iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.To4() != nil {
+				return ipnet.IP.String()
+			}
+		}
+	}
+	return bind
+}
+
 // PortMapper creates individual local HTTP proxy listeners, each forwarding
 // all traffic through a specific upstream proxy.
 type PortMapper struct {
@@ -123,15 +150,19 @@ func (pm *PortMapper) UnmapProxy(proxyID int) {
 }
 
 // GetMappings returns all current port mappings sorted by local port.
+// Display addresses replace "0.0.0.0" with the machine's real IP.
 func (pm *PortMapper) GetMappings() []MappedProxy {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
 
+	displayAddr := GetPublicAddr(pm.bindAddr)
+
 	result := make([]MappedProxy, 0, len(pm.entries))
 	for _, e := range pm.entries {
+		addr := fmt.Sprintf("%s:%d", displayAddr, e.localPort)
 		result = append(result, MappedProxy{
 			ProxyID:   e.proxyID,
-			LocalAddr: e.localAddr,
+			LocalAddr: addr,
 			LocalPort: e.localPort,
 			Upstream:  e.upstream.Address,
 			Type:      e.upstream.Type,

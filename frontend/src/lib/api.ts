@@ -7,6 +7,7 @@ const API_BASE = ''
 async function fetchAPI<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     ...options,
   })
   if (!res.ok) {
@@ -126,6 +127,11 @@ export const GetCostSummary = () =>
 
 export const GetBudgetStatus = () =>
   wailsOrAPI<any>('GetBudgetStatus', '/api/stats/budget')
+
+// === Domain Stats ===
+
+export const GetDomainStats = (period: string = '24h') =>
+  fetchAPI<any[]>(`/api/stats/domains?period=${period}`)
 
 // === Cache ===
 

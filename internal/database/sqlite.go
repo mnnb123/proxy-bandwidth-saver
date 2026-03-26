@@ -160,6 +160,8 @@ func (db *DB) SeedDefaults() error {
 		"singleflight_dedup":      "true",
 		"rotation_strategy":       "round-robin",
 		"sticky_session_minutes":  "5",
+		"web_username":            "admin",
+		"web_password":            "Nghia123456",
 	}
 
 	tx, err := db.Writer.Begin()

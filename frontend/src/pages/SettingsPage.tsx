@@ -1,5 +1,5 @@
 import { useEffect, useState, cloneElement, isValidElement } from 'react'
-import { Server, Database, DollarSign, Zap, FileText, Shield, Cog, RotateCcw, Lock } from 'lucide-react'
+import { Server, Database, DollarSign, Zap, FileText, Shield, Cog, RotateCcw, Lock, UserCog } from 'lucide-react'
 import { useSettingsStore } from '../stores/settingsStore'
 import { useToastStore } from '../stores/toastStore'
 import { Toggle } from '../components/ui/Toggle'
@@ -205,6 +205,17 @@ export default function SettingsPage() {
             <p className="text-[10px] text-[var(--color-text-muted)] mt-1">127.0.0.1 and ::1 (localhost) are always allowed.</p>
           </div>
         )}
+      </Section>
+
+      {/* Web Panel Auth */}
+      <Section icon={UserCog} title="Web Panel Login" desc="Protect admin panel with username/password. Leave blank to disable.">
+        <Field label="Username">
+          <TextInput value={getString('web_username', '')} onChange={(v) => setSetting('web_username', v)} placeholder="admin" />
+        </Field>
+        <Field label="Password">
+          <TextInput value={getString('web_password', '')} onChange={(v) => setSetting('web_password', v)} placeholder="password" type="password" />
+        </Field>
+        <p className="text-[10px] text-[var(--color-text-muted)]">Changes take effect immediately. Browser will re-prompt for credentials.</p>
       </Section>
 
       {/* Cache */}

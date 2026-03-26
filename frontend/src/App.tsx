@@ -8,12 +8,14 @@ import { DashboardSkeleton, TableSkeleton, SettingsSkeleton } from './components
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const RulesPage = lazy(() => import('./pages/RulesPage'))
 const ProxiesPage = lazy(() => import('./pages/ProxiesPage'))
+const DomainsPage = lazy(() => import('./pages/DomainsPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
 
 const pages: Record<Page, React.ComponentType> = {
   dashboard: DashboardPage,
   rules: RulesPage,
   proxies: ProxiesPage,
+  domains: DomainsPage,
   settings: SettingsPage,
 }
 
@@ -21,6 +23,7 @@ const fallbacks: Record<Page, React.ReactNode> = {
   dashboard: <DashboardSkeleton />,
   rules: <div className="p-6 space-y-4"><TableSkeleton rows={6} cols={6} /></div>,
   proxies: <div className="p-6 space-y-4"><TableSkeleton rows={4} cols={4} /></div>,
+  domains: <div className="p-6 space-y-4"><TableSkeleton rows={8} cols={5} /></div>,
   settings: <div className="p-6 space-y-4">{[...Array(3)].map((_, i) => <SettingsSkeleton key={i} />)}</div>,
 }
 

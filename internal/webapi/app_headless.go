@@ -307,6 +307,16 @@ func (a *HeadlessApp) remapAllProxies() {
 	}
 }
 
+// GetWebCredentials returns the current web panel login credentials.
+func (a *HeadlessApp) GetWebCredentials() (string, string) {
+	if a.db == nil {
+		return "", ""
+	}
+	user, _ := a.db.GetSetting("web_username")
+	pass, _ := a.db.GetSetting("web_password")
+	return user, pass
+}
+
 // JSON helpers
 func jsonMarshal(v interface{}) ([]byte, error) {
 	return json.Marshal(v)
