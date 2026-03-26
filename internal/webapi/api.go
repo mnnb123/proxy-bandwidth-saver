@@ -60,7 +60,7 @@ type AppBackend interface {
 }
 
 // AppVersion is the application version string, set at build time or here.
-var AppVersion = "1.0.1"
+var AppVersion = "1.0.2"
 
 // Router creates the HTTP API handler.
 func Router(app AppBackend) http.Handler {

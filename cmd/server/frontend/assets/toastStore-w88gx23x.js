@@ -1,0 +1,1 @@
+import{t as e}from"./react-CNZ34VwR.js";import{r as t}from"./index-BmnfjufK.js";var n=e(()=>({toasts:[],addToast:(e,n)=>{e===`success`?t.success(n):e===`error`?t.error(n,{duration:5e3}):e===`warning`&&t.warning(n)},removeToast:()=>{}}));export{n as t};

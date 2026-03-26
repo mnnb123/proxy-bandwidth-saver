@@ -263,6 +263,7 @@ func (s *ProxyServer) setupHTTPProxy() error {
 
 		// Block check
 		if rctx.Route == RouteBlock {
+			s.pipeline.Meter(rctx)
 			s.connCount.Add(-1)
 			return req, goproxy.NewResponse(req, goproxy.ContentTypeText, http.StatusNoContent, "")
 		}

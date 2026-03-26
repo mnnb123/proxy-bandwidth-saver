@@ -82,6 +82,9 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 
 	// Block: return 204 No Content
 	if route == RouteBlock {
+		if f.meter != nil {
+			f.meter(domain, 0, 0, f.proxyID, "block")
+		}
 		w.WriteHeader(http.StatusNoContent)
 		return
 	}
@@ -89,6 +92,9 @@ func (f *proxyForwarder) handleHTTP(w http.ResponseWriter, r *http.Request) {
 	// Bypass: PAC file should handle this domain (client connects directly).
 	// Return 502 so client knows this proxy won't serve it.
 	if route == RouteBypass {
+		if f.meter != nil {
+			f.meter(domain, 0, 0, f.proxyID, "bypass")
+		}
 		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
 		return
 	}
@@ -134,12 +140,18 @@ func (f *proxyForwarder) handleConnect(w http.ResponseWriter, r *http.Request) {
 
 	// Block: reject connection
 	if route == RouteBlock {
+		if f.meter != nil {
+			f.meter(domain, 0, 0, f.proxyID, "block")
+		}
 		http.Error(w, "blocked", http.StatusForbidden)
 		return
 	}
 
 	// Bypass: PAC file should handle this (client connects directly)
 	if route == RouteBypass {
+		if f.meter != nil {
+			f.meter(domain, 0, 0, f.proxyID, "bypass")
+		}
 		http.Error(w, "bypass: use PAC file for direct connection", http.StatusBadGateway)
 		return
 	}

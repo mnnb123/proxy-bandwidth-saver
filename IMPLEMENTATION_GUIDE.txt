@@ -1,0 +1,69 @@
+IMPLEMENTATION GUIDE: Add Classification to Output Port Forwarders
+
+QUICK SUMMARY:
+Add classifier field to 3 forwarder types and apply classification before forwarding.
+
+FILES TO MODIFY:
+
+1. internal/proxy/forwarder.go
+   - Add field: classifier *classifier.Classifier to proxyForwarder struct
+   - Update newProxyForwarder() to accept classifier parameter
+   - In handleHTTP(): Add 5 lines for classification + block check
+   - In handleConnect(): Add 5 lines for classification + block check
+
+2. internal/proxy/socks5_forwarder.go
+   - Add field: classifier *classifier.Classifier to socks5Listener struct
+   - In handleConn(): Add 6 lines for classification + block check
+
+3. internal/proxy/portmap.go
+   - Add field: classifier *classifier.Classifier to PortMapper struct
+   - Update NewPortMapper() signature to accept classifier
+   - In MapProxy(): Pass classifier to newProxyForwarder() and socks5Listener init
+
+4. app.go or app_proxies.go (where PortMapper is created)
+   - Get classifier instance
+   - Pass to NewPortMapper()
+
+KEY CHANGES:
+
+In handleHTTP (forwarder.go):
+  route := proxy.RouteResidential
+  if f.classifier != nil {
+      route = f.classifier.Classify(r)
+  }
+  if route == proxy.RouteBlock {
+      w.WriteHeader(http.StatusNoContent)
+      return
+  }
+
+In handleConnect (forwarder.go):
+  route := proxy.RouteResidential
+  if f.classifier != nil {
+      route = f.classifier.Classify(r)
+  }
+  if route == proxy.RouteBlock {
+      http.Error(w, "Blocked", http.StatusNoContent)
+      return
+  }
+
+In handleConn (socks5_forwarder.go):
+  route := proxy.RouteResidential
+  if s.classifier != nil {
+      req, _ := http.NewRequest("CONNECT", "http://"+target, nil)
+      route = s.classifier.Classify(req)
+  }
+  if route == proxy.RouteBlock {
+      conn.Write([]byte{0x05, 0x04, 0x00, 0x01, 0, 0, 0, 0, 0, 0})
+      return
+  }
+
+IMPORTS NEEDED:
+  Add to forwarder.go: import "proxy-bandwidth-saver/internal/classifier"
+  Add to socks5_forwarder.go: import "proxy-bandwidth-saver/internal/classifier"
+
+TOTAL IMPACT:
+  Lines added: ~50 (non-breaking additions only)
+  Files modified: 4
+  Complexity: Low
+  Breaking changes: None (all new fields are optional with nil checks)
+

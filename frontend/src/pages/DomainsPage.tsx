@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react'
-import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown } from 'lucide-react'
+import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
 import { GetDomainStats, ClearDomainStats, GetOutputProxies, GetSettings, UpdateSetting } from '../lib/api'
 import { formatBytes, copyToClipboard } from '../lib/format'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -48,9 +48,9 @@ const rowBg: Record<string, string> = {
 const statusLabel: Record<string, string> = {
   residential: 'PROXY',
   datacenter: 'DATACENTER',
-  direct: 'BYPASS',
+  direct: 'BYPASS VPS',
   bypass: 'BYPASS',
-  bypass_vps: 'BYPASS',
+  bypass_vps: 'BYPASS VPS',
   block: 'BLOCK',
 }
 
@@ -72,8 +72,18 @@ export default function DomainsPage() {
   const [outputProxies, setOutputProxies] = useState<OutputProxy[]>([])
   const [search, setSearch] = useState('')
   const [showCount, setShowCount] = useState(50)
-  const [sortField, setSortField] = useState<'totalBytes' | 'lastSeen'>('totalBytes')
+  const [sortField, setSortField] = useState<'totalBytes' | 'lastSeen' | 'route' | 'domain' | 'port'>('totalBytes')
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [copiedDomain, setCopiedDomain] = useState('')
+
+  const toggleSort = (field: typeof sortField) => {
+    if (sortField === field) {
+      setSortDir(sortDir === 'desc' ? 'asc' : 'desc')
+    } else {
+      setSortField(field)
+      setSortDir(field === 'domain' || field === 'route' ? 'asc' : 'desc')
+    }
+  }
 
   // Build port lookup map
   const portMap = useMemo(() => {
@@ -122,12 +132,23 @@ export default function DomainsPage() {
       const q = search.toLowerCase()
       result = result.filter((s) => s.domain.toLowerCase().includes(q))
     }
+    const dir = sortDir === 'asc' ? 1 : -1
     result = [...result].sort((a, b) => {
-      if (sortField === 'totalBytes') return b.totalBytes - a.totalBytes
-      return (b.lastSeen || '').localeCompare(a.lastSeen || '')
+      switch (sortField) {
+        case 'totalBytes': return (a.totalBytes - b.totalBytes) * dir
+        case 'lastSeen': return (a.lastSeen || '').localeCompare(b.lastSeen || '') * dir
+        case 'route': {
+          const la = statusLabel[a.route] || a.route
+          const lb = statusLabel[b.route] || b.route
+          return la.localeCompare(lb) * dir
+        }
+        case 'domain': return a.domain.localeCompare(b.domain) * dir
+        case 'port': return ((portMap[a.proxyId] || a.proxyId) - (portMap[b.proxyId] || b.proxyId)) * dir
+        default: return 0
+      }
     })
     return result.slice(0, showCount)
-  }, [stats, search, showCount, sortField])
+  }, [stats, search, showCount, sortField, sortDir, portMap])
 
   const handleClear = async () => {
     await ClearDomainStats()
@@ -219,13 +240,7 @@ export default function DomainsPage() {
             </select>
             <span>entries</span>
           </div>
-          <button
-            onClick={() => setSortField(sortField === 'totalBytes' ? 'lastSeen' : 'totalBytes')}
-            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:bg-[var(--color-sidebar-hover)] transition-colors"
-          >
-            <ArrowUpDown size={12} />
-            Sort {sortField === 'totalBytes' ? 'Bandwidth' : 'Time'}
-          </button>
+          <span className="text-[10px] text-[var(--color-text-muted)]">Click column header to sort</span>
         </div>
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
@@ -265,11 +280,28 @@ export default function DomainsPage() {
             <table className="w-full">
               <thead className="sticky top-0 bg-[var(--color-bg-elevated)] z-10">
                 <tr className="border-b border-[var(--color-border)]">
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)] w-20">Port</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">HostName</th>
-                  <th className="text-left px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)] w-28">Status</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)] w-28">Bandwidth</th>
-                  <th className="text-right px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)] w-44">Created</th>
+                  {([
+                    { key: 'port' as const, label: 'Port', align: 'left', width: 'w-20' },
+                    { key: 'domain' as const, label: 'HostName', align: 'left', width: '' },
+                    { key: 'route' as const, label: 'Status', align: 'left', width: 'w-32' },
+                    { key: 'totalBytes' as const, label: 'Bandwidth', align: 'right', width: 'w-28' },
+                    { key: 'lastSeen' as const, label: 'Created', align: 'right', width: 'w-44' },
+                  ]).map((col) => (
+                    <th
+                      key={col.key}
+                      onClick={() => toggleSort(col.key)}
+                      className={`${col.align === 'right' ? 'text-right' : 'text-left'} px-4 py-2.5 text-xs font-semibold text-[var(--color-text-primary)] ${col.width} cursor-pointer select-none hover:bg-[var(--color-sidebar-hover)] transition-colors`}
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        {col.label}
+                        {sortField === col.key ? (
+                          sortDir === 'asc' ? <ChevronUp size={12} /> : <ChevronDown size={12} />
+                        ) : (
+                          <ArrowUpDown size={10} className="opacity-30" />
+                        )}
+                      </span>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
