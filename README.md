@@ -15,82 +15,70 @@ Ung dung quan ly proxy thong minh giup tiet kiem bang thong residential. Tu dong
 - **Dark Mode** — Giao dien sang/toi voi chuyen doi muot ma
 - **Responsive UI** — Sidebar tu dong thu gon khi cua so nho
 
-## Yeu cau he thong
+## Cai dat len VPS (1 lenh)
 
-### Desktop (Windows — Wails App)
-- **Go** >= 1.21
-- **Node.js** >= 18
-- **Wails CLI** v2 — `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
-- **WebView2** Runtime (Windows 10/11 da co san)
-
-### Headless Server (Linux VPS)
-- **Go** >= 1.21
-- **Node.js** >= 18 (de build frontend)
-
-## Cai dat & Chay
-
-### 1. Clone repo
+SSH vao VPS va chay:
 
 ```bash
+curl -sSL https://raw.githubusercontent.com/mnnb123/proxy-bandwidth-saver/master/setup.sh | sudo bash
+```
+
+Script se tu dong:
+- Cai Go, Node.js, git (neu chua co)
+- Clone repo, build frontend + backend
+- Tao systemd service va khoi dong
+
+Sau khi cai xong:
+- **Web Panel**: `http://<vps-ip>:8080`
+- **HTTP Proxy**: `<vps-ip>:8888`
+- **SOCKS5 Proxy**: `<vps-ip>:8889`
+
+> **Luu y**: Vao Settings > Proxy Authentication de bat bao mat truoc khi su dung!
+
+Ho tro: Ubuntu/Debian, CentOS/RHEL, Fedora — amd64 & arm64.
+
+---
+
+<details>
+<summary>Cai dat thu cong (advanced)</summary>
+
+### Yeu cau he thong
+
+**Desktop (Windows — Wails App)**
+- Go >= 1.21, Node.js >= 18
+- Wails CLI v2 — `go install github.com/wailsapp/wails/v2/cmd/wails@latest`
+
+**Headless Server (Linux VPS)**
+- Go >= 1.21, Node.js >= 18
+
+### Build & Deploy thu cong
+
+```bash
+# Clone
 git clone https://github.com/mnnb123/proxy-bandwidth-saver.git
 cd proxy-bandwidth-saver
-```
 
-### 2. Cai dependencies
-
-```bash
-# Go modules
+# Dependencies
 go mod download
-
-# Frontend
 cd frontend && npm install && cd ..
-```
 
-### 3a. Chay Desktop App (Windows)
+# Desktop (Windows)
+wails dev          # dev mode
+wails build        # build .exe
 
-```bash
-# Dev mode (hot reload)
-wails dev
+# Headless (Linux)
+make build-linux        # amd64
+make build-linux-arm64  # arm64
 
-# Build file .exe
-wails build
-```
-
-File output: `build/bin/proxy-bandwidth-saver.exe`
-
-### 3b. Build Headless Server (Linux VPS)
-
-```bash
-# Build cho Linux amd64
-make build-linux
-
-# Hoac Linux arm64
-make build-linux-arm64
-
-# Hoac Windows headless (khong co GUI)
-make build-windows
-```
-
-File output: `dist/proxy-bandwidth-saver-linux-amd64`
-
-### 4. Deploy len VPS
-
-```bash
-# Dong goi (binary + systemd service + install script)
+# Deploy
 make package-linux
-
-# Upload len server
-scp dist/proxy-bandwidth-saver-linux-amd64.tar.gz user@your-vps:/tmp/
-
-# Tren server:
+scp dist/proxy-bandwidth-saver-linux-amd64.tar.gz user@vps:/tmp/
+# Tren VPS:
 cd /tmp && tar xzf proxy-bandwidth-saver-linux-amd64.tar.gz
 sudo bash install.sh
 ```
 
-Sau khi cai dat:
-- **Web Admin Panel**: `http://<vps-ip>:8080`
-- **HTTP Proxy**: `<vps-ip>:8888`
-- **SOCKS5 Proxy**: `<vps-ip>:8889`
+</details>
 
 ## Cau hinh
 

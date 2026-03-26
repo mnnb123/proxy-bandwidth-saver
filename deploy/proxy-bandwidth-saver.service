@@ -1,6 +1,6 @@
 [Unit]
 Description=Proxy Bandwidth Saver - Local proxy with bandwidth optimization
-Documentation=https://github.com/user/proxy-bandwidth-saver
+Documentation=https://github.com/mnnb123/proxy-bandwidth-saver
 After=network-online.target
 Wants=network-online.target
 
