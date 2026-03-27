@@ -16,10 +16,8 @@ interface Props {
 }
 
 const ACTIONS = [
-  { value: 'bypass', label: 'Bypass' },
-  { value: 'block', label: 'Block' },
   { value: 'bypass_vps', label: 'Bypass VPS' },
-  { value: 'direct', label: 'Direct' },
+  { value: 'block', label: 'Block' },
   { value: 'datacenter', label: 'Datacenter' },
   { value: 'residential', label: 'Residential' },
 ]

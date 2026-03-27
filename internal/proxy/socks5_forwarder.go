@@ -118,13 +118,6 @@ func (s *socks5Listener) handleConn(conn net.Conn) {
 		return
 	}
 
-	// Bypass: PAC file should handle this (client connects directly)
-	if route == RouteBypass {
-		s.recordMeter(targetHost, 0, 0, "bypass")
-		conn.Write([]byte{0x05, 0x02, 0x00, 0x01, 0, 0, 0, 0, 0, 0}) // connection not allowed
-		return
-	}
-
 	// 3. Connect: direct or via upstream
 	upConn, dialErr := s.dialUpstream(route, target)
 	if dialErr != nil {

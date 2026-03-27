@@ -40,7 +40,7 @@ const ROUTE_CONFIG: Record<string, { label: string; color: string; bg: string }>
   residential: { label: 'PROXY', color: 'text-red-600 dark:text-red-400', bg: 'bg-red-50 dark:bg-red-950/30' },
   datacenter: { label: 'DATACENTER', color: 'text-blue-600 dark:text-blue-400', bg: 'bg-blue-50 dark:bg-blue-950/30' },
   direct: { label: 'BYPASS VPS', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
-  bypass: { label: 'BYPASS', color: 'text-amber-600 dark:text-amber-400', bg: 'bg-yellow-50 dark:bg-yellow-950/20' },
+  bypass: { label: 'BYPASS VPS', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
   bypass_vps: { label: 'BYPASS VPS', color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30' },
   block: { label: 'BLOCK', color: 'text-orange-600 dark:text-orange-400', bg: 'bg-orange-50 dark:bg-orange-950/30' },
 }

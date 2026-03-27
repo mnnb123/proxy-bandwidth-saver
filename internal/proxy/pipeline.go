@@ -9,8 +9,7 @@ import (
 type Route string
 
 const (
-	RouteDirect      Route = "direct"      // bypass upstream proxy, use server's own IP (VPS IP)
-	RouteBypass      Route = "bypass"      // client should connect directly (local IP) - handled by PAC file
+	RouteDirect      Route = "direct" // bypass upstream proxy, use server's own IP (VPS IP)
 	RouteDatacenter  Route = "datacenter"
 	RouteResidential Route = "residential"
 	RouteBlock       Route = "block"

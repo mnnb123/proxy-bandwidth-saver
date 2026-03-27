@@ -3,9 +3,9 @@ import { X } from 'lucide-react'
 import { useRulesStore } from '../../stores/rulesStore'
 
 const ACTIONS = [
-  { value: 'bypass', label: 'Bypass', desc: 'Không qua proxy, sử dụng mạng bình thường', color: 'text-[var(--color-success)]' },
+  { value: 'bypass_vps', label: 'Bypass VPS', desc: 'Không dùng proxy upstream, dùng IP VPS trực tiếp', color: 'text-[var(--color-success)]' },
   { value: 'block', label: 'Block', desc: 'Chặn hoàn toàn traffic của domain', color: 'text-[var(--color-danger)]' },
-  { value: 'bypass_vps', label: 'Bypass VPS', desc: 'Không dùng proxy upstream, dùng IP VPS', color: 'text-[var(--color-info-text)]' },
+  { value: 'residential', label: 'Residential', desc: 'Đi qua proxy residential (tốn bandwidth)', color: 'text-[var(--color-warning)]' },
 ]
 
 const EXT_GROUPS = [

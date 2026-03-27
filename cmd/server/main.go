@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -53,28 +52,6 @@ func main() {
 
 	// Main HTTP server mux
 	mainMux := http.NewServeMux()
-
-	// PAC file endpoint (no auth - browsers need to fetch this before proxy config)
-	mainMux.HandleFunc("/proxy.pac", func(w http.ResponseWriter, r *http.Request) {
-		proxyAddr := r.URL.Query().Get("proxy")
-		if proxyAddr == "" {
-			// Default: use this server's address with main HTTP proxy port
-			host := r.Host
-			if idx := strings.Index(host, ":"); idx >= 0 {
-				host = host[:idx]
-			}
-			proxyAddr = fmt.Sprintf("%s:%d", host, cfg.HTTPPort)
-		}
-		// Sanitize proxyAddr to prevent JavaScript injection in PAC file
-		proxyAddr = strings.Map(func(r rune) rune {
-			if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') || r == '.' || r == ':' || r == '-' {
-				return r
-			}
-			return -1
-		}, proxyAddr)
-		w.Header().Set("Content-Type", "application/x-ns-proxy-autoconfig")
-		w.Write([]byte(app.GeneratePAC(proxyAddr)))
-	})
 
 	// SSE events endpoint
 	mainMux.Handle("/api/events", events)

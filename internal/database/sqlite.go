@@ -78,8 +78,12 @@ func (db *DB) applyPragmas(conn *sql.DB) error {
 }
 
 func (db *DB) migrate() error {
-	_, err := db.Writer.Exec(schemaSQL)
-	return err
+	if _, err := db.Writer.Exec(schemaSQL); err != nil {
+		return err
+	}
+	// Migrate old "bypass" rules to "bypass_vps" (PAC file removed)
+	db.Writer.Exec("UPDATE rules SET action = 'bypass_vps' WHERE action = 'bypass'")
+	return nil
 }
 
 func (db *DB) Close() error {

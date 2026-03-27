@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Plus, Download, Upload, FlaskConical, Layers, Shield, Ban, Globe, Trash2, Info, Copy, Check } from 'lucide-react'
+import { Plus, Download, Upload, FlaskConical, Layers, Ban, Globe, Trash2 } from 'lucide-react'
 import { useRulesStore } from '../stores/rulesStore'
 import { RulesTable } from '../components/rules/RulesTable'
 import { AddRuleForm } from '../components/rules/AddRuleForm'
@@ -8,18 +8,13 @@ import { ImportExportModal } from '../components/rules/ImportExportModal'
 import { EmptyState } from '../components/ui/EmptyState'
 import { TableSkeleton } from '../components/ui/Skeleton'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
-import { copyToClipboard } from '../lib/format'
-
-type FilterKey = 'all' | 'bypass' | 'block' | 'bypass_vps'
+type FilterKey = 'all' | 'bypass_vps' | 'block'
 
 const FILTERS: { key: FilterKey; label: string; icon: typeof Globe }[] = [
   { key: 'all', label: 'All', icon: Layers },
-  { key: 'bypass', label: 'Bypass', icon: Globe },
+  { key: 'bypass_vps', label: 'Bypass VPS', icon: Globe },
   { key: 'block', label: 'Block', icon: Ban },
-  { key: 'bypass_vps', label: 'Bypass VPS', icon: Shield },
 ]
-
-const isWails = typeof (window as any).__wails_invoke !== 'undefined'
 
 export default function RulesPage() {
   const rules = useRulesStore((s) => s.rules)
@@ -31,26 +26,19 @@ export default function RulesPage() {
   const [showTester, setShowTester] = useState(false)
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [importExport, setImportExport] = useState<'import' | 'export' | null>(null)
-  const [copiedPAC, setCopiedPAC] = useState(false)
-
-  const pacURL = useMemo(() => {
-    if (isWails) return null
-    return `${window.location.protocol}//${window.location.host}/proxy.pac`
-  }, [])
 
   useEffect(() => { fetchRules() }, [fetchRules])
 
   const filtered = useMemo(() => {
     if (filter === 'all') return rules
-    if (filter === 'bypass') return rules.filter((r) => r.action === 'bypass' || r.action === 'direct')
+    if (filter === 'bypass_vps') return rules.filter((r) => r.action === 'bypass_vps' || r.action === 'bypass' || r.action === 'direct')
     return rules.filter((r) => r.action === filter)
   }, [rules, filter])
 
   const counts = useMemo(() => ({
     all: rules.length,
-    bypass: rules.filter((r) => r.action === 'bypass' || r.action === 'direct').length,
+    bypass_vps: rules.filter((r) => r.action === 'bypass_vps' || r.action === 'bypass' || r.action === 'direct').length,
     block: rules.filter((r) => r.action === 'block').length,
-    bypass_vps: rules.filter((r) => r.action === 'bypass_vps').length,
   }), [rules])
 
   const handleAdded = useCallback(() => {
@@ -124,35 +112,6 @@ export default function RulesPage() {
           )
         })}
       </div>
-
-      {/* PAC URL Info */}
-      {pacURL && counts.bypass > 0 && (
-        <div className="flex items-start gap-3 bg-[var(--color-info-bg)] border border-[var(--color-info-text)]/20 rounded-lg px-4 py-3">
-          <Info size={16} className="text-[var(--color-info-text)] mt-0.5 shrink-0" />
-          <div className="flex-1 min-w-0">
-            <p className="text-xs font-medium text-[var(--color-info-text)]">
-              PAC File — Cần thiết để Bypass hoạt động đúng
-            </p>
-            <p className="text-[11px] text-[var(--color-text-muted)] mt-1">
-              Cấu hình browser dùng PAC URL bên dưới. Domain "Bypass" sẽ kết nối trực tiếp (IP local), không qua proxy.
-            </p>
-            <div className="flex items-center gap-2 mt-2">
-              <code className="text-[11px] bg-[var(--color-bg-elevated)] px-2 py-1 rounded border border-[var(--color-border)] text-[var(--color-text-primary)] font-mono select-all">{pacURL}</code>
-              <button
-                onClick={() => {
-                  copyToClipboard(pacURL)
-                  setCopiedPAC(true)
-                  setTimeout(() => setCopiedPAC(false), 2000)
-                }}
-                className="p-1 rounded hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-muted)]"
-                title="Copy PAC URL"
-              >
-                {copiedPAC ? <Check size={14} className="text-[var(--color-success)]" /> : <Copy size={14} />}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table */}
       {loading ? (

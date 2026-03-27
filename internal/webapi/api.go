@@ -51,9 +51,6 @@ type AppBackend interface {
 
 	// Certs
 	GetCACertPath() string
-
-	// PAC
-	GeneratePAC(proxyAddr string) string
 }
 
 // AppVersion is the application version string, set at build time or here.
