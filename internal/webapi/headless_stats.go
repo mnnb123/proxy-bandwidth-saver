@@ -108,7 +108,7 @@ var allowedSettingKeys = map[string]bool{
 	"html_minification": true, "image_recompression": true, "image_quality": true,
 	"cache_enabled": true, "cache_max_size_mb": true, "cache_ttl_minutes": true,
 	"budget_daily_gb": true, "budget_monthly_gb": true, "cost_per_gb": true,
-	"auto_clear_minutes": true, "log_retention_days": true,
+	"auto_clear_minutes": true, "domain_report_clear_minutes": true, "log_retention_days": true,
 	"mitm_enabled": true,
 }
 

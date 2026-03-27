@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useMemo, memo } from 'react'
-import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react'
+import { Globe, Trash2, Clock, Settings2, Check, Copy, Search, ArrowUpDown, ChevronUp, ChevronDown, Save } from 'lucide-react'
 import { GetDomainStats, ClearDomainStats, GetOutputProxies, GetSettings, UpdateSetting } from '../lib/api'
+import { useToastStore } from '../stores/toastStore'
 import { formatBytes, copyToClipboard } from '../lib/format'
 import { EmptyState } from '../components/ui/EmptyState'
 import { ConfirmDialog } from '../components/ui/ConfirmDialog'
@@ -97,6 +98,8 @@ export default function DomainsPage() {
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [showSettings, setShowSettings] = useState(false)
   const [autoClearMinutes, setAutoClearMinutes] = useState(0)
+  const [pendingAutoClear, setPendingAutoClear] = useState<number | null>(null)
+  const [savingAutoClear, setSavingAutoClear] = useState(false)
   const [outputProxies, setOutputProxies] = useState<OutputProxy[]>([])
   const [search, setSearch] = useState('')
   const [showCount, setShowCount] = useState(50)
@@ -184,10 +187,27 @@ export default function DomainsPage() {
     setShowClearConfirm(false)
   }
 
-  const handleAutoClearChange = async (minutes: number) => {
-    setAutoClearMinutes(minutes)
-    await UpdateSetting('domain_report_clear_minutes', String(minutes))
+  const handleAutoClearSelect = (minutes: number) => {
+    setPendingAutoClear(minutes)
   }
+
+  const handleAutoClearSave = async () => {
+    if (pendingAutoClear === null) return
+    setSavingAutoClear(true)
+    try {
+      await UpdateSetting('domain_report_clear_minutes', String(pendingAutoClear))
+      setAutoClearMinutes(pendingAutoClear)
+      setPendingAutoClear(null)
+      useToastStore.getState().addToast('success', pendingAutoClear === 0 ? 'Auto clear disabled' : `Auto clear set to ${pendingAutoClear} minutes`)
+    } catch (e) {
+      useToastStore.getState().addToast('error', `Failed to save: ${e}`)
+    } finally {
+      setSavingAutoClear(false)
+    }
+  }
+
+  const currentAutoClear = pendingAutoClear !== null ? pendingAutoClear : autoClearMinutes
+  const hasUnsavedAutoClear = pendingAutoClear !== null && pendingAutoClear !== autoClearMinutes
 
   const copyDomain = (domain: string) => {
     copyToClipboard(domain)
@@ -226,29 +246,48 @@ export default function DomainsPage() {
       {/* Auto Clear Settings */}
       {showSettings && (
         <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Settings2 size={14} className="text-[var(--color-text-muted)]" />
-            <span className="text-xs font-medium text-[var(--color-text-primary)]">Auto Clear Domain Data</span>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Settings2 size={14} className="text-[var(--color-text-muted)]" />
+              <span className="text-xs font-medium text-[var(--color-text-primary)]">Auto Clear Domain Data</span>
+            </div>
+            <button
+              onClick={handleAutoClearSave}
+              disabled={!hasUnsavedAutoClear || savingAutoClear}
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                hasUnsavedAutoClear
+                  ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] hover:bg-[var(--color-primary-hover)]'
+                  : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-muted)] border-[var(--color-border)] opacity-50 cursor-not-allowed'
+              }`}
+            >
+              <Save size={12} />
+              {savingAutoClear ? 'Saving...' : 'Save'}
+            </button>
           </div>
           <p className="text-[11px] text-[var(--color-text-muted)] mb-3">
-            Tự động xóa dữ liệu cũ hơn thời gian đã chọn. Giúp giảm RAM và database.
+            Tự động xóa dữ liệu cũ hơn thời gian đã chọn. Giúp giảm RAM và database. Chọn thời gian rồi nhấn Save.
           </p>
           <div className="flex flex-wrap gap-2">
             {AUTO_CLEAR_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => handleAutoClearChange(opt.value)}
+                onClick={() => handleAutoClearSelect(opt.value)}
                 className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-colors ${
-                  autoClearMinutes === opt.value
+                  currentAutoClear === opt.value
                     ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)]'
                     : 'bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] border-[var(--color-border)] hover:bg-[var(--color-sidebar-hover)]'
                 }`}
               >
-                {autoClearMinutes === opt.value && <Check size={12} />}
+                {currentAutoClear === opt.value && <Check size={12} />}
                 {opt.label}
               </button>
             ))}
           </div>
+          {hasUnsavedAutoClear && (
+            <p className="text-[11px] text-amber-500 mt-2">
+              Chưa lưu — nhấn Save để áp dụng.
+            </p>
+          )}
         </div>
       )}
 
