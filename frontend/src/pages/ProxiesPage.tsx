@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback, memo } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { Plus, Upload, Globe, Trash2, Wifi, WifiOff, Copy, Check, ExternalLink } from 'lucide-react'
 import { useProxiesStore } from '../stores/proxiesStore'
 import { EmptyState } from '../components/ui/EmptyState'
@@ -9,31 +9,6 @@ import { AddProxyModal } from '../components/proxies/AddProxyModal'
 import { BulkImportModal } from '../components/proxies/BulkImportModal'
 import { copyToClipboard } from '../lib/format'
 
-interface OutputProxySectionProps {
-  title: string
-  colorClass: string
-  borderColorClass: string
-  items: Array<{ localPort: number; localAddr: string; upstream: string }>
-}
-
-const OutputProxySection = memo(function OutputProxySection({ title, colorClass, borderColorClass, items }: OutputProxySectionProps) {
-  return (
-    <div className={`bg-[var(--color-bg-base)] border ${borderColorClass} rounded-xl overflow-hidden`}>
-      <div className="px-3 py-2 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
-        <span className={`text-[11px] font-medium ${colorClass}`}>{title}</span>
-        <span className="text-[10px] text-[var(--color-text-muted)] ml-2">format: host:port</span>
-      </div>
-      <div className="max-h-[220px] overflow-y-auto p-2 space-y-0.5">
-        {items.map((op) => (
-          <div key={op.localPort} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-[var(--color-sidebar-hover)] transition-colors group">
-            <span className={`font-mono text-xs ${colorClass}`}>{op.localAddr}</span>
-            <span className="text-[10px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]">→ {op.upstream}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-})
 
 export default function ProxiesPage() {
   const proxies = useProxiesStore((s) => s.proxies)
@@ -54,9 +29,6 @@ export default function ProxiesPage() {
     fetchOutputProxies()
   }, [fetchProxies, fetchOutputProxies])
 
-  const httpOutputs = useMemo(() => outputProxies.filter((o) => o.protocol === 'http'), [outputProxies])
-  const socks5Outputs = useMemo(() => outputProxies.filter((o) => o.protocol === 'socks5'), [outputProxies])
-
   const stats = useMemo(() => [
     { label: 'Total', value: proxies.length },
     { label: 'Residential', value: proxies.filter((p) => p.category === 'residential').length },
@@ -65,13 +37,11 @@ export default function ProxiesPage() {
   ], [proxies, outputProxies.length])
 
   const copyOutputList = useCallback(() => {
-    const lines: string[] = []
-    httpOutputs.forEach((o) => lines.push(`http://${o.localAddr}`))
-    socks5Outputs.forEach((o) => lines.push(`socks5://${o.localAddr}`))
+    const lines = outputProxies.map((o) => o.localAddr)
     copyToClipboard(lines.join('\n'))
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }, [httpOutputs, socks5Outputs])
+  }, [outputProxies])
 
   return (
     <div className="p-6 overflow-y-auto h-full space-y-4">
@@ -194,21 +164,23 @@ export default function ProxiesPage() {
               <p className="text-xs text-[var(--color-text-muted)]">Add proxies to see output ports here</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              <OutputProxySection
-                title="HTTP Proxy"
-                colorClass="text-[var(--color-success)]"
-                borderColorClass="border-[var(--color-success)]/30"
-                items={httpOutputs}
-              />
-              <OutputProxySection
-                title="SOCKS5 Proxy"
-                colorClass="text-[var(--color-primary)]"
-                borderColorClass="border-[var(--color-primary)]/30"
-                items={socks5Outputs}
-              />
+            <div className="space-y-2">
+              <div className="bg-[var(--color-bg-base)] border border-[var(--color-primary)]/30 rounded-xl overflow-hidden">
+                <div className="px-3 py-2 bg-[var(--color-bg-elevated)] border-b border-[var(--color-border)]">
+                  <span className="text-[11px] font-medium text-[var(--color-primary)]">Socks5 + Http Proxy</span>
+                  <span className="text-[10px] text-[var(--color-text-muted)] ml-2">Ex: host:port</span>
+                </div>
+                <div className="max-h-[400px] overflow-y-auto p-2 space-y-0.5">
+                  {outputProxies.map((op) => (
+                    <div key={op.localPort} className="flex items-center justify-between px-3 py-1.5 rounded hover:bg-[var(--color-sidebar-hover)] transition-colors group">
+                      <span className="font-mono text-xs text-[var(--color-primary)]">{op.localAddr}</span>
+                      <span className="text-[10px] text-[var(--color-text-muted)] group-hover:text-[var(--color-text-secondary)]">→ {op.upstream}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
               <div className="text-[11px] text-[var(--color-text-muted)]">
-                {httpOutputs.length} HTTP + {socks5Outputs.length} SOCKS5 = {outputProxies.length} output ports
+                {outputProxies.length} output port{outputProxies.length !== 1 ? 's' : ''} (each supports HTTP + SOCKS5)
               </div>
             </div>
           )}
