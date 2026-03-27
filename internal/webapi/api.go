@@ -30,6 +30,7 @@ type AppBackend interface {
 	GetProxiesJSON() interface{}
 	AddProxy(address, username, password, proxyType, category string) error
 	DeleteProxy(id int) error
+	ClearAllProxies() error
 	ImportProxies(text string) int
 	GetOutputProxiesJSON() interface{}
 

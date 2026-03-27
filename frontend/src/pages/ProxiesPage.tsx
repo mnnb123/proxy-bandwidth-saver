@@ -18,10 +18,12 @@ export default function ProxiesPage() {
   const fetchOutputProxies = useProxiesStore((s) => s.fetchOutputProxies)
   const addProxy = useProxiesStore((s) => s.addProxy)
   const deleteProxy = useProxiesStore((s) => s.deleteProxy)
+  const clearAllProxies = useProxiesStore((s) => s.clearAllProxies)
   const importProxies = useProxiesStore((s) => s.importProxies)
   const [showAdd, setShowAdd] = useState(false)
   const [showImport, setShowImport] = useState(false)
   const [deleteId, setDeleteId] = useState<number | null>(null)
+  const [showClearConfirm, setShowClearConfirm] = useState(false)
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
@@ -49,6 +51,14 @@ export default function ProxiesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Proxy Pool</h1>
         <div className="flex items-center gap-2">
+          {proxies.length > 0 && (
+            <button
+              onClick={() => setShowClearConfirm(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-danger-bg)] text-[var(--color-danger)] hover:bg-[var(--color-danger)]/20 border border-[var(--color-danger)]/30 transition-colors"
+            >
+              <Trash2 size={14} /> Clear All
+            </button>
+          )}
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-[var(--radius-lg)] bg-[var(--color-bg-elevated)] text-[var(--color-text-secondary)] hover:bg-[var(--color-sidebar-hover)] border border-[var(--color-border)] transition-colors"
@@ -201,6 +211,17 @@ export default function ProxiesPage() {
         title="Remove Proxy"
         message="Are you sure you want to remove this proxy from the pool?"
         confirmText="Remove"
+        destructive
+      />
+
+      {/* Clear All Confirm */}
+      <ConfirmDialog
+        open={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={() => { clearAllProxies(); setShowClearConfirm(false) }}
+        title="Clear All Proxies"
+        message={`Are you sure you want to remove all ${proxies.length} proxies? This cannot be undone.`}
+        confirmText="Clear All"
         destructive
       />
     </div>

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { GetProxies, AddProxyAPI, DeleteProxy, ImportProxies, GetOutputProxies } from '../lib/api'
+import { GetProxies, AddProxyAPI, DeleteProxy, ClearAllProxies, ImportProxies, GetOutputProxies } from '../lib/api'
 import { useToastStore } from './toastStore'
 
 interface Proxy {
@@ -21,6 +21,7 @@ interface ProxiesState {
   fetchOutputProxies: () => Promise<void>
   addProxy: (address: string, username: string, password: string, proxyType: string, category: string) => Promise<void>
   deleteProxy: (id: number) => Promise<void>
+  clearAllProxies: () => Promise<void>
   importProxies: (text: string) => Promise<number>
 }
 
@@ -72,6 +73,16 @@ export const useProxiesStore = create<ProxiesState>((set, get) => ({
       get().fetchOutputProxies()
     } catch (e) {
       toast().addToast('error', `Failed to remove proxy: ${e}`)
+    }
+  },
+
+  clearAllProxies: async () => {
+    try {
+      await ClearAllProxies()
+      toast().addToast('success', 'All proxies cleared')
+      set({ proxies: [], outputProxies: [] })
+    } catch (e) {
+      toast().addToast('error', `Failed to clear proxies: ${e}`)
     }
   },
 

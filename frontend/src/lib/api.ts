@@ -122,6 +122,9 @@ export async function AddProxyAPI(address: string, username: string, password: s
 export const DeleteProxy = (id: number) =>
   wailsOrAPI<void>('DeleteProxy', `/api/proxies/${id}`, { method: 'DELETE' }, id)
 
+export const ClearAllProxies = () =>
+  wailsOrAPI<void>('ClearAllProxies', '/api/proxies/clear', { method: 'DELETE' })
+
 export async function ImportProxies(text: string): Promise<number> {
   if (isWails) {
     const { ImportProxies } = await import('../../wailsjs/go/main/App')

@@ -69,6 +69,22 @@ func (a *HeadlessApp) DeleteProxy(id int) error {
 	return a.upstream.DeleteProxy(a.db.Writer, id)
 }
 
+func (a *HeadlessApp) ClearAllProxies() error {
+	if a.db == nil {
+		return fmt.Errorf("not initialized")
+	}
+	if a.portMapper != nil {
+		a.portMapper.StopAll()
+	}
+	if _, err := a.db.Writer.Exec("DELETE FROM proxies"); err != nil {
+		return err
+	}
+	if a.upstream != nil {
+		a.upstream.LoadProxies()
+	}
+	return nil
+}
+
 func (a *HeadlessApp) ImportProxies(text string) int {
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	count := 0

@@ -52,6 +52,18 @@ func registerProxiesRoutes(mux *http.ServeMux, app AppBackend) {
 		writeJSON(w, map[string]bool{"ok": true})
 	}))
 
+	mux.HandleFunc("/api/proxies/clear", cors(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodDelete {
+			http.Error(w, "method not allowed", 405)
+			return
+		}
+		if err := app.ClearAllProxies(); err != nil {
+			writeError(w, err)
+			return
+		}
+		writeJSON(w, map[string]bool{"ok": true})
+	}))
+
 	mux.HandleFunc("/api/proxies/import", cors(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", 405)
