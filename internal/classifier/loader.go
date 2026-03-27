@@ -2,6 +2,7 @@ package classifier
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 )
 
@@ -66,6 +67,17 @@ func SeedDefaultRules(writer *sql.DB) error {
 // CRUD operations
 
 func CreateRule(writer *sql.DB, ruleType, pattern, action string, priority int) (int64, error) {
+	// Check for duplicate (same type + pattern)
+	var existingID int64
+	err := writer.QueryRow(
+		"SELECT id FROM rules WHERE rule_type = ? AND pattern = ?",
+		ruleType, pattern,
+	).Scan(&existingID)
+	if err == nil {
+		// Rule already exists, skip
+		return existingID, fmt.Errorf("rule already exists: %s %s", ruleType, pattern)
+	}
+
 	result, err := writer.Exec(
 		"INSERT INTO rules (rule_type, pattern, action, priority) VALUES (?, ?, ?, ?)",
 		ruleType, pattern, action, priority,

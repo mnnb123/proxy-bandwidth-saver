@@ -99,8 +99,10 @@ func (a *HeadlessApp) GetSettingsJSON() interface{} {
 }
 
 // allowedSettingKeys is the allowlist of setting keys that can be updated via API.
+// allowedSettingKeys is the allowlist of setting keys that can be updated via API.
 var allowedSettingKeys = map[string]bool{
 	"proxy_auth_enabled": true, "proxy_username": true, "proxy_password": true,
+	"ip_whitelist_enabled": true, "ip_whitelist": true,
 	"web_username": true, "web_password": true,
 	"accept_encoding_enforce": true, "header_stripping": true,
 	"html_minification": true, "image_recompression": true, "image_quality": true,
