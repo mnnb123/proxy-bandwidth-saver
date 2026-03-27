@@ -151,13 +151,7 @@ export default function SettingsPage() {
       <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">Settings</h1>
 
       {/* Proxy Server */}
-      <Section icon={Server} title="Proxy Server" desc="Local proxy server configuration. Changes require restart.">
-        <Field label="HTTP Port">
-          <NumberInput value={getNumber('http_port', 8888)} onChange={(v) => setSetting('http_port', v)} min={1024} max={65535} />
-        </Field>
-        <Field label="SOCKS5 Port">
-          <NumberInput value={getNumber('socks5_port', 8889)} onChange={(v) => setSetting('socks5_port', v)} min={1024} max={65535} />
-        </Field>
+      <Section icon={Server} title="Proxy Server" desc="Output proxy ports configuration. Changes require restart.">
         <Field label="Output Base Port">
           <NumberInput value={getNumber('base_port', 30000)} onChange={(v) => setSetting('base_port', v)} min={1024} max={65535} />
         </Field>
@@ -197,12 +191,12 @@ export default function SettingsPage() {
         </Field>
         {getBool('ip_whitelist_enabled', false) && (
           <div>
-            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Allowed IPs (comma-separated, supports CIDR e.g. 192.168.1.0/24)</label>
+            <label className="text-xs text-[var(--color-text-muted)] mb-1 block">Allowed IPs (one per line, supports CIDR e.g. 192.168.1.0/24)</label>
             <TextAreaInput
-              value={getString('ip_whitelist', '')}
-              onChange={(v) => setSetting('ip_whitelist', v)}
-              placeholder="192.168.1.100, 10.0.0.0/8, 172.16.0.0/12"
-              rows={3}
+              value={getString('ip_whitelist', '').replace(/,\s*/g, '\n')}
+              onChange={(v) => setSetting('ip_whitelist', v.split('\n').map((s: string) => s.trim()).filter(Boolean).join('\n'))}
+              placeholder={"14.227.246.61\n14.227.246.62\n192.168.1.0/24"}
+              rows={4}
             />
             <p className="text-[10px] text-[var(--color-text-muted)] mt-1">127.0.0.1 and ::1 (localhost) are always allowed.</p>
           </div>

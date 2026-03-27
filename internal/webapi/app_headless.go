@@ -106,9 +106,7 @@ func (a *HeadlessApp) Start() error {
 		ImageQuality:          a.cfg.ImageQuality,
 	}
 
-	if err := a.StartProxy(); err != nil {
-		log.Printf("Auto-start proxy failed: %v", err)
-	}
+	// Main proxy (8888/8889) removed — only output ports (30000+) are used.
 
 	go a.emitRealtimeStats()
 	go a.autoClearLoop()

@@ -46,7 +46,9 @@ func (a *ProxyAuth) Configure(authEnabled bool, username, password string, white
 	a.allowedNets = nil
 
 	if whitelist != "" {
-		for _, entry := range strings.Split(whitelist, ",") {
+		// Support both newline-separated and comma-separated entries
+		normalized := strings.NewReplacer("\r\n", "\n", "\r", "\n", ",", "\n").Replace(whitelist)
+		for _, entry := range strings.Split(normalized, "\n") {
 			entry = strings.TrimSpace(entry)
 			if entry == "" {
 				continue

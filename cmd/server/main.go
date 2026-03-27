@@ -82,8 +82,6 @@ func main() {
 
 	addr := fmt.Sprintf("0.0.0.0:%d", *webPort)
 	log.Printf("Web admin panel: http://%s", addr)
-	log.Printf("HTTP Proxy: 0.0.0.0:%d", cfg.HTTPPort)
-	log.Printf("SOCKS5 Proxy: 0.0.0.0:%d", cfg.SOCKS5Port)
 
 	server := &http.Server{
 		Addr:              addr,

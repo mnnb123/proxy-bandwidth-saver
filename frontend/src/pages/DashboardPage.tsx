@@ -2,7 +2,6 @@ import { useEffect, memo, useMemo } from 'react'
 import { Activity, DollarSign, Zap, TrendingDown, ArrowDown, ArrowUp, Wifi } from 'lucide-react'
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 import { useBandwidthStore } from '../stores/bandwidthStore'
-import { useProxyStore } from '../stores/proxyStore'
 import { useWailsEvent } from '../hooks/useWailsEvent'
 import { formatBytes, formatBytesPerSec, formatCost, formatPercent } from '../lib/format'
 
@@ -171,27 +170,18 @@ const ChartContent = memo(function ChartContent({ data }: { data: { time: string
 
 const ConnectionsInfo = memo(function ConnectionsInfo() {
   const activeConnections = useBandwidthStore((s) => s.activeConnections)
-  const running = useProxyStore((s) => s.running)
-  const httpPort = useProxyStore((s) => s.httpPort)
-  const socks5Port = useProxyStore((s) => s.socks5Port)
 
   return (
     <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border)] rounded-xl p-4">
       <h2 className="text-xs text-[var(--color-text-muted)] uppercase tracking-wide mb-3">Proxy Info</h2>
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
-          <span className="text-[var(--color-text-muted)]">Status</span>
-          <span className={running ? 'text-[var(--color-success)]' : 'text-[var(--color-danger)]'}>
-            {running ? 'Running' : 'Stopped'}
-          </span>
+          <span className="text-[var(--color-text-muted)]">Output Ports</span>
+          <span className="text-[var(--color-text-secondary)] font-mono text-xs">30000+</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-[var(--color-text-muted)]">HTTP Proxy</span>
-          <span className="text-[var(--color-text-secondary)] font-mono text-xs">localhost:{httpPort}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-[var(--color-text-muted)]">SOCKS5</span>
-          <span className="text-[var(--color-text-secondary)] font-mono text-xs">localhost:{socks5Port}</span>
+          <span className="text-[var(--color-text-muted)]">Protocol</span>
+          <span className="text-[var(--color-text-secondary)] text-xs">HTTP + SOCKS5</span>
         </div>
         <div className="flex justify-between">
           <span className="text-[var(--color-text-muted)]">Active Conns</span>

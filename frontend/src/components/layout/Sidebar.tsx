@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
-import { LayoutDashboard, Shield, Globe, Settings, Play, Square, Menu, X, BarChart3 } from 'lucide-react'
-import { useProxyStore } from '../../stores/proxyStore'
+import { LayoutDashboard, Shield, Globe, Settings, Menu, X, BarChart3 } from 'lucide-react'
 import { GetVersion } from '../../lib/api'
 
 type Page = 'dashboard' | 'rules' | 'proxies' | 'domains' | 'settings'
@@ -21,10 +20,6 @@ const navItems: { id: Page; label: string; icon: typeof LayoutDashboard }[] = [
 const COLLAPSE_WIDTH = 720
 
 export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
-  const running = useProxyStore((s) => s.running)
-  const startProxy = useProxyStore((s) => s.startProxy)
-  const stopProxy = useProxyStore((s) => s.stopProxy)
-
   const [collapsed, setCollapsed] = useState(() => window.innerWidth < COLLAPSE_WIDTH)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [version, setVersion] = useState('')
@@ -52,12 +47,10 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   if (collapsed && mobileOpen) {
     return (
       <>
-        {/* Backdrop */}
         <div
           className="fixed inset-0 z-40 bg-[var(--color-bg-overlay)]"
           onClick={() => setMobileOpen(false)}
         />
-        {/* Slide-out sidebar */}
         <div className="fixed inset-y-0 left-0 z-50 w-52 bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] flex flex-col animate-slide-in-left">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)]">
             <span className="text-xs font-medium text-[var(--color-text-secondary)]">Menu</span>
@@ -69,24 +62,24 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
               <X size={16} />
             </button>
           </div>
-          <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} version={version} />
+          <SidebarContent activePage={activePage} onNavigate={handleNav} version={version} />
         </div>
       </>
     )
   }
 
-  // Collapsed: show hamburger button only
+  // Collapsed icon bar
   if (collapsed) {
     return (
-      <div className="w-12 bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] flex flex-col items-center py-3 h-full">
+      <div className="flex flex-col items-center">
         <button
           onClick={() => setMobileOpen(true)}
-          className="p-2 rounded-[var(--radius-lg)] hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-secondary)] transition-colors"
+          className="p-2 m-2 rounded-[var(--radius-lg)] hover:bg-[var(--color-sidebar-hover)] text-[var(--color-text-secondary)]"
           aria-label="Open menu"
         >
-          <Menu size={18} />
+          <Menu size={20} />
         </button>
-        <nav className="flex-1 flex flex-col items-center gap-1 mt-3">
+        <nav className="flex flex-col items-center gap-1 mt-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = activePage === item.id
@@ -106,20 +99,6 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
             )
           })}
         </nav>
-        <div className="pb-3">
-          <div className={`w-2 h-2 rounded-full mx-auto mb-2 ${running ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`} />
-          <button
-            onClick={running ? stopProxy : startProxy}
-            title={running ? 'Stop Proxy' : 'Start Proxy'}
-            className={`p-2 rounded-[var(--radius-lg)] transition-all duration-150 active:scale-[0.97]
-              ${running
-                ? 'text-[var(--color-danger)] hover:bg-[var(--color-danger-bg)]'
-                : 'text-[var(--color-success)] hover:bg-[var(--color-success-bg)]'
-              }`}
-          >
-            {running ? <Square size={16} /> : <Play size={16} />}
-          </button>
-        </div>
       </div>
     )
   }
@@ -127,13 +106,13 @@ export default function Sidebar({ activePage, onNavigate }: SidebarProps) {
   // Full sidebar
   return (
     <div className="w-52 bg-[var(--color-sidebar-bg)] border-r border-[var(--color-border)] flex flex-col h-full">
-      <SidebarContent activePage={activePage} onNavigate={handleNav} running={running} startProxy={startProxy} stopProxy={stopProxy} version={version} />
+      <SidebarContent activePage={activePage} onNavigate={handleNav} version={version} />
     </div>
   )
 }
 
-function SidebarContent({ activePage, onNavigate, running, startProxy, stopProxy, version }: {
-  activePage: Page; onNavigate: (page: Page) => void; running: boolean; startProxy: () => void; stopProxy: () => void; version: string
+function SidebarContent({ activePage, onNavigate, version }: {
+  activePage: Page; onNavigate: (page: Page) => void; version: string
 }) {
   return (
     <>
@@ -158,28 +137,11 @@ function SidebarContent({ activePage, onNavigate, running, startProxy, stopProxy
         })}
       </nav>
 
-      <div className="p-4 border-t border-[var(--color-border)]">
-        <div className="flex items-center gap-2 mb-3">
-          <div className={`w-2 h-2 rounded-full ${running ? 'bg-[var(--color-success)]' : 'bg-[var(--color-danger)]'}`} />
-          <span className="text-xs text-[var(--color-text-muted)]">
-            {running ? 'Running' : 'Stopped'}
-          </span>
+      {version && (
+        <div className="p-4 border-t border-[var(--color-border)]">
+          <p className="text-[10px] text-[var(--color-text-muted)] text-center">v{version}</p>
         </div>
-        <button
-          onClick={running ? stopProxy : startProxy}
-          className={`w-full flex items-center justify-center gap-2 py-2 rounded-[var(--radius-lg)] text-sm font-medium transition-all duration-150 cursor-pointer active:scale-[0.97]
-            ${running
-              ? 'bg-[var(--color-danger-bg)] text-[var(--color-danger-text)] hover:bg-[var(--color-danger)] hover:text-white'
-              : 'bg-[var(--color-success-bg)] text-[var(--color-success-text)] hover:bg-[var(--color-success)] hover:text-white'
-            }`}
-        >
-          {running ? <Square size={14} /> : <Play size={14} />}
-          {running ? 'Stop Proxy' : 'Start Proxy'}
-        </button>
-        {version && (
-          <p className="text-[10px] text-[var(--color-text-muted)] text-center mt-2">v{version}</p>
-        )}
-      </div>
+      )}
     </>
   )
 }
