@@ -67,6 +67,9 @@ func (a *App) ClearAllProxies() error {
 	if a.portMapper != nil {
 		a.portMapper.StopAll()
 	}
+	if _, err := a.db.Writer.Exec("DELETE FROM bandwidth_log WHERE proxy_id IS NOT NULL"); err != nil {
+		return err
+	}
 	if _, err := a.db.Writer.Exec("DELETE FROM proxies"); err != nil {
 		return err
 	}
