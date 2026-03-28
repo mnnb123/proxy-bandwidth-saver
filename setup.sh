@@ -6,7 +6,7 @@
 set -euo pipefail
 
 APP_NAME="proxy-bandwidth-saver"
-APP_VERSION="1.1.0"
+APP_VERSION="1.2.0"
 REPO_URL="https://github.com/mnnb123/proxy-bandwidth-saver.git"
 INSTALL_DIR="/usr/local/bin"
 DATA_DIR="/var/lib/${APP_NAME}"
@@ -223,9 +223,8 @@ start_app() {
         echo -e "${GREEN}${BOLD}  Version: ${APP_VERSION}${NC}"
         echo -e "${GREEN}${BOLD}========================================${NC}"
         echo ""
-        echo -e "  ${BOLD}Web Panel:${NC}    http://${VPS_IP}:8080"
-        echo -e "  ${BOLD}HTTP Proxy:${NC}   ${VPS_IP}:8888"
-        echo -e "  ${BOLD}SOCKS5 Proxy:${NC} ${VPS_IP}:8889"
+        echo -e "  ${BOLD}Web Panel:${NC}      http://${VPS_IP}:8080"
+        echo -e "  ${BOLD}Output Ports:${NC}   ${VPS_IP}:30000+ (HTTP+SOCKS5)"
         echo ""
         echo -e "  ${BOLD}Quan ly:${NC}"
         echo "    systemctl status  ${APP_NAME}"
